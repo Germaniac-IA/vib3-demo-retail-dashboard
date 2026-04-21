@@ -112,14 +112,17 @@ export default function PublicDesignPage({ params }: { params: Promise<{ token: 
   async function handleSaveWizard() {
     setSavingWizard(true);
     try {
-      const r = await fetch(`${API}/design-requests/${dr!.id}`, {
-        method: "PUT",
+      const r = await fetch(`${API}/design-requests/public/${token}/wizard`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(wizard),
       });
-      if (r.ok) {
+      if (r.ok || r.status === 200) {
         setWizardSaved(true);
         setTimeout(() => setWizardSaved(false), 2000);
+      } else {
+        const d = await r.json();
+        alert(d.error || "Error al guardar");
       }
     } catch { alert("Error al guardar"); }
     finally { setSavingWizard(false); }
