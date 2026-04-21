@@ -173,7 +173,7 @@ export default function PublicDesignPage({ params }: { params: Promise<{ token: 
         )}
 
         {/* Wizard */}
-        {dr.status === "pending_template" && (
+        {(dr.status === "pending_template" || dr.status === "template_uploaded") && (
           <div style={{ background: "#fff", borderRadius: 16, padding: "20px 24px", marginBottom: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.06)" }}>
             <h2 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 800, color: "#333" }}>🎨 Personalizá tu diseño</h2>
             <p style={{ margin: "0 0 16px", fontSize: 13, color: "#666" }}>Completá estos datos para personalizar el render de tu camiseta</p>
@@ -268,6 +268,33 @@ export default function PublicDesignPage({ params }: { params: Promise<{ token: 
                 </button>
               </form>
             </div>
+          </div>
+        )}
+
+        {/* Diseñar button */}
+        {(dr.status === "template_uploaded") && (
+          <div style={{ background: "#fff", borderRadius: 16, padding: "20px 24px", marginBottom: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.06)", textAlign: "center" }}>
+            <p style={{ margin: "0 0 12px", fontSize: 13, color: "#666" }}>¿Ya completaste la personalización y subiste tu diseño? Hacé clic para renderizar.</p>
+            <button
+              onClick={async () => {
+                if (!confirm("Esto enviarà tu diseño a renderizar. Continuar?")) return;
+                try {
+                  const r = await fetch(`${API}/design-requests/public/${token}/render`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ image_url: dr.client_uploaded_image_url }),
+                  });
+                  const data = await r.json();
+                  if (data.error) { alert("Error: " + data.error); return; }
+                  // Reload to see updated status
+                  const r2 = await fetch(`${API}/design-requests/public/${token}`);
+                  setDr(await r2.json());
+                } catch(e) { alert("Error al renderizar"); }
+              }}
+              style={{ padding: "12px 32px", background: "#9b59b6", color: "#fff", border: "none", borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: "pointer" }}
+            >
+              🎨 Diseñar
+            </button>
           </div>
         )}
 
