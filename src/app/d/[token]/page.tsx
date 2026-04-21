@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, use } from "react";
-import { useRouter } from "next/navigation";
 
 type DesignStatus =
   | "pending_template"
@@ -22,6 +21,10 @@ interface DesignData {
   designer_prompt: string | null;
   token: string;
   order_number?: string;
+  estilo?: string;
+  deporte?: string;
+  corte?: string;
+  rasgos?: string;
   feedback?: FeedbackEntry[];
 }
 
@@ -32,10 +35,10 @@ interface FeedbackEntry {
   created_at: string;
 }
 
-const API = process.env.NEXT_PUBLIC_API_URL || '';
+const API = process.env.NEXT_PUBLIC_API_URL || "";
 
 const STATUS_LABELS: Record<DesignStatus, string> = {
-  pending_template: "⏳ En espera",
+  pending_template: "⏳ Esperando tu diseño",
   template_uploaded: "📤 Template subido",
   rendering: "🎨 Renderizando...",
   rendered: "✅ Diseño listo",
@@ -53,16 +56,21 @@ export default function PublicDesignPage({ params }: { params: Promise<{ token: 
   const [imageUrl, setImageUrl] = useState("");
   const [feedbackText, setFeedbackText] = useState("");
   const [sendingFeedback, setSendingFeedback] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [wizard, setWizard] = useState({ estilo: "", deporte: "", corte: "", rasgos: "" });
+  const [savingWizard, setSavingWizard] = useState(false);
+  const [wizardSaved, setWizardSaved] = useState(false);
 
   useEffect(() => {
     fetch(`${API}/design-requests/public/${token}`)
       .then(r => r.json())
       .then(d => {
         if (d.error) { setError(d.error); }
-        else { setDr(d); }
+        else {
+          setDr(d);
+          setWizard({ estilo: d.estilo || "", deporte: d.deporte || "", corte: d.corte || "", rasgos: d.rasgos || "" });
+        }
       })
-      .catch(e => setError("Error al cargar"))
+      .catch(() => setError("Error al cargar"))
       .finally(() => setLoading(false));
   }, [token]);
 
@@ -78,14 +86,10 @@ export default function PublicDesignPage({ params }: { params: Promise<{ token: 
       });
       const data = await r.json();
       if (data.error) { alert(data.error); return; }
-      // Reload
       const r2 = await fetch(`${API}/design-requests/public/${token}`);
       setDr(await r2.json());
-    } catch (e) {
-      alert("Error al subir imagen");
-    } finally {
-      setUploading(false);
-    }
+    } catch { alert("Error al subir imagen"); }
+    finally { setUploading(false); }
   }
 
   async function handleFeedback(e: React.FormEvent) {
@@ -99,30 +103,36 @@ export default function PublicDesignPage({ params }: { params: Promise<{ token: 
         body: JSON.stringify({ message: feedbackText }),
       });
       setFeedbackText("");
-      // Reload
       const r = await fetch(`${API}/design-requests/public/${token}`);
       setDr(await r.json());
-    } catch (e) {
-      alert("Error al enviar");
-    } finally {
-      setSendingFeedback(false);
-    }
+    } catch { alert("Error al enviar"); }
+    finally { setSendingFeedback(false); }
   }
 
-  async function handleCopyLink() {
-    await navigator.clipboard.writeText(window.location.href);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  async function handleSaveWizard() {
+    setSavingWizard(true);
+    try {
+      const r = await fetch(`${API}/design-requests/${dr!.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(wizard),
+      });
+      if (r.ok) {
+        setWizardSaved(true);
+        setTimeout(() => setWizardSaved(false), 2000);
+      }
+    } catch { alert("Error al guardar"); }
+    finally { setSavingWizard(false); }
   }
 
   if (loading) return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "system-ui, sans-serif" }}>
-      <p>Cargando...</p>
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "system-ui, sans-serif", background: "#f5f5f5" }}>
+      <p style={{ color: "#888" }}>Cargando...</p>
     </div>
   );
 
   if (error) return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "system-ui, sans-serif" }}>
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "system-ui, sans-serif", background: "#f5f5f5" }}>
       <div style={{ textAlign: "center", padding: 40, background: "#fff", borderRadius: 16, boxShadow: "0 4px 20px rgba(0,0,0,0.1)", maxWidth: 400 }}>
         <div style={{ fontSize: 48, marginBottom: 16 }}>🔗</div>
         <h2 style={{ margin: "0 0 8px", color: "#333" }}>Link inválido o expirado</h2>
@@ -159,28 +169,68 @@ export default function PublicDesignPage({ params }: { params: Promise<{ token: 
           </div>
         )}
 
+        {/* Wizard */}
+        {dr.status === "pending_template" && (
+          <div style={{ background: "#fff", borderRadius: 16, padding: "20px 24px", marginBottom: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.06)" }}>
+            <h2 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 800, color: "#333" }}>🎨 Personalizá tu diseño</h2>
+            <p style={{ margin: "0 0 16px", fontSize: 13, color: "#666" }}>Completá estos datos para personalizar el render de tu camiseta</p>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Estilo</label>
+                <select value={wizard.estilo} onChange={e => setWizard({ ...wizard, estilo: e.target.value })} style={{ width: "100%", padding: "8px 10px", border: "1px solid #ddd", borderRadius: 8, fontSize: 13 }}>
+                  <option value="">Seleccionar...</option>
+                  <option value="Actual">Actual</option>
+                  <option value="Novedoso">Novedoso</option>
+                  <option value="Ochentoso">Ochentoso</option>
+                  <option value="Clasico">Clasico</option>
+                  <option value="Minimalista">Minimalista</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Deporte</label>
+                <select value={wizard.deporte} onChange={e => setWizard({ ...wizard, deporte: e.target.value })} style={{ width: "100%", padding: "8px 10px", border: "1px solid #ddd", borderRadius: 8, fontSize: 13 }}>
+                  <option value="">Seleccionar...</option>
+                  <option value="Voley">Voley</option>
+                  <option value="Futbol">Futbol</option>
+                  <option value="Basketball">Basketball</option>
+                  <option value="Rugby">Rugby</option>
+                  <option value="Running">Running</option>
+                  <option value="Gym">Gym</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Corte</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                {["Masculino", "Femenino", "Unisex"].map(c => (
+                  <button key={c} onClick={() => setWizard({ ...wizard, corte: c })} style={{ flex: 1, padding: "8px", borderRadius: 8, border: wizard.corte === c ? "2px solid #6c63ff" : "1px solid #ddd", background: wizard.corte === c ? "#f0edff" : "#fff", cursor: "pointer", fontWeight: wizard.corte === c ? 700 : 400, fontSize: 13 }}>{c}</button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Otros rasgos</label>
+              <input type="text" value={wizard.rasgos} onChange={e => setWizard({ ...wizard, rasgos: e.target.value })} placeholder="Ej: Fondo rojo, detalles dorados, lineas blancas..." style={{ width: "100%", padding: "8px 10px", border: "1px solid #ddd", borderRadius: 8, fontSize: 13, boxSizing: "border-box" }} />
+            </div>
+
+            <button onClick={handleSaveWizard} disabled={savingWizard} style={{ width: "100%", padding: "10px", background: wizardSaved ? "#27ae60" : savingWizard ? "#aaa" : "#6c63ff", color: "#fff", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: savingWizard ? "not-allowed" : "pointer" }}>
+              {wizardSaved ? "✅ Guardado!" : savingWizard ? "Guardando..." : "Guardar personalizacion"}
+            </button>
+          </div>
+        )}
+
         {/* Upload section */}
         {(dr.status === "pending_template" || dr.status === "template_uploaded") && (
           <div style={{ background: "#fff", borderRadius: 16, padding: "20px 24px", marginBottom: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.06)" }}>
             <h2 style={{ margin: "0 0 12px", fontSize: 16, fontWeight: 800, color: "#333" }}>📤 Subí tu diseño</h2>
             <p style={{ margin: "0 0 16px", fontSize: 13, color: "#666" }}>
-              Pegá la URL de la imagen con tu diseño. Podés subirla a servicios gratuitos como
-              <strong> imgBB.com</strong> o <strong>imgur.com</strong> y copiar el link.
+              Pegá la URL de la imagen con tu diseño. Podés usar servicios gratuitos como <strong>imgBB.com</strong> o <strong>imgur.com</strong>.
             </p>
             <form onSubmit={handleUpload} style={{ display: "flex", gap: 8 }}>
-              <input
-                type="url"
-                value={imageUrl}
-                onChange={e => setImageUrl(e.target.value)}
-                placeholder="https://... (URL de tu imagen)"
-                required
-                style={{ flex: 1, padding: "10px 12px", border: "1px solid #ddd", borderRadius: 10, fontSize: 13 }}
-              />
-              <button
-                type="submit"
-                disabled={uploading}
-                style={{ padding: "10px 20px", background: "#6c63ff", color: "#fff", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: uploading ? "not-allowed" : "pointer", opacity: uploading ? 0.6 : 1 }}
-              >
+              <input type="url" value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://... (URL de tu imagen)" required style={{ flex: 1, padding: "10px 12px", border: "1px solid #ddd", borderRadius: 10, fontSize: 13 }} />
+              <button type="submit" disabled={uploading} style={{ padding: "10px 20px", background: "#6c63ff", color: "#fff", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: uploading ? "not-allowed" : "pointer", opacity: uploading ? 0.6 : 1 }}>
                 {uploading ? "Subiendo..." : "Subir ✅"}
               </button>
             </form>
@@ -197,7 +247,7 @@ export default function PublicDesignPage({ params }: { params: Promise<{ token: 
 
         {/* Production ready */}
         {dr.status === "production_ready" && (
-          <div style={{ background: "#e8f5e9", borderRadius: 16, padding: "24px", marginBottom: 20, textAlign: "center", boxShadow: "0 2px 10px rgba(0,0,0,0.06)" }}>
+          <div style={{ background: "#e8f5e9", borderRadius: 16, padding: 24, marginBottom: 20, textAlign: "center", boxShadow: "0 2px 10px rgba(0,0,0,0.06)" }}>
             <div style={{ fontSize: 64, marginBottom: 12 }}>🚀</div>
             <h2 style={{ margin: "0 0 8px", color: "#2e7d32", fontSize: 22 }}>¡Listo para producción!</h2>
             <p style={{ margin: 0, color: "#555", fontSize: 14 }}>Tu diseño fue aprobado y pasará a producción.</p>
@@ -209,19 +259,12 @@ export default function PublicDesignPage({ params }: { params: Promise<{ token: 
           <h2 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 800, color: "#333" }}>💬 Comentarios</h2>
           <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
             {(dr.feedback ?? []).map(fb => (
-              <div key={fb.id} style={{
-                padding: "10px 14px",
-                borderRadius: 10,
-                background: fb.author === "client" ? "#e8f5e9" : fb.author === "designer" ? "#f3e5f5" : "#e3f2fd",
-                border: `1px solid ${fb.author === "client" ? "#a5d6a7" : fb.author === "designer" ? "#ce93d8" : "#90caf9"}`,
-              }}>
+              <div key={fb.id} style={{ padding: "10px 14px", borderRadius: 10, background: fb.author === "client" ? "#e8f5e9" : fb.author === "designer" ? "#f3e5f5" : "#e3f2fd", border: `1px solid ${fb.author === "client" ? "#a5d6a7" : fb.author === "designer" ? "#ce93d8" : "#90caf9"}` }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                   <span style={{ fontWeight: 700, fontSize: 12, textTransform: "capitalize" }}>
                     {fb.author === "client" ? "👤 Vos" : fb.author === "designer" ? "🎨 Diseñador" : "🤖 Tienda"}
                   </span>
-                  <span style={{ fontSize: 11, color: "#888" }}>
-                    {new Date(fb.created_at).toLocaleString("es-AR")}
-                  </span>
+                  <span style={{ fontSize: 11, color: "#888" }}>{new Date(fb.created_at).toLocaleString("es-AR")}</span>
                 </div>
                 <div style={{ fontSize: 14 }}>{fb.message}</div>
               </div>
@@ -231,18 +274,8 @@ export default function PublicDesignPage({ params }: { params: Promise<{ token: 
             )}
           </div>
           <form onSubmit={handleFeedback} style={{ display: "flex", gap: 8 }}>
-            <textarea
-              value={feedbackText}
-              onChange={e => setFeedbackText(e.target.value)}
-              placeholder="Escribí tu comentario..."
-              rows={2}
-              style={{ flex: 1, padding: "10px 12px", borderRadius: 10, border: "1px solid #ddd", fontSize: 13, resize: "vertical", fontFamily: "inherit" }}
-            />
-            <button
-              type="submit"
-              disabled={sendingFeedback || !feedbackText.trim()}
-              style={{ padding: "10px 18px", background: sendingFeedback ? "#aaa" : "#6c63ff", color: "#fff", border: "none", borderRadius: 10, fontSize: 13, cursor: sendingFeedback ? "not-allowed" : "pointer", fontWeight: 700, alignSelf: "flex-end" }}
-            >
+            <textarea value={feedbackText} onChange={e => setFeedbackText(e.target.value)} placeholder="Escribí tu comentario..." rows={2} style={{ flex: 1, padding: "10px 12px", borderRadius: 10, border: "1px solid #ddd", fontSize: 13, resize: "vertical", fontFamily: "inherit" }} />
+            <button type="submit" disabled={sendingFeedback || !feedbackText.trim()} style={{ padding: "10px 18px", background: sendingFeedback ? "#aaa" : "#6c63ff", color: "#fff", border: "none", borderRadius: 10, fontSize: 13, cursor: sendingFeedback ? "not-allowed" : "pointer", fontWeight: 700, alignSelf: "flex-end" }}>
               {sendingFeedback ? "Enviando..." : "Enviar 💬"}
             </button>
           </form>
