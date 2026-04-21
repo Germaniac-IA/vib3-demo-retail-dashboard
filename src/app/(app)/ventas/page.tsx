@@ -70,7 +70,7 @@ export default function VentasPage() {
 
   function doSaveStatus(newStatusId: number) {
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
-    fetch(`http://149.50.148.131:4000/api/orders/${statusTargetId}`, {
+    fetch(`http://149.50.148.131:4100/api/orders/${statusTargetId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
       body: JSON.stringify({ order_status_id: newStatusId }),

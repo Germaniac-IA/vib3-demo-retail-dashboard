@@ -201,7 +201,7 @@ export default function ProductosPage() {
       }
       // Upload image if pending file (backend saves image to disk and updates DB with URL)
       if ((form as any)._pendingImage && savedId) {
-        const api = (window as any).__API_URL__ || 'http://149.50.148.131:4000/api';
+        const api = (window as any).__API_URL__ || 'http://149.50.148.131:4100/api';
         const resImg = await fetch(`${api}/products/${savedId}/image`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
