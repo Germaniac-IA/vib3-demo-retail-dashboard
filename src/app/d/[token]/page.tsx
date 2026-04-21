@@ -226,14 +226,45 @@ export default function PublicDesignPage({ params }: { params: Promise<{ token: 
           <div style={{ background: "#fff", borderRadius: 16, padding: "20px 24px", marginBottom: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.06)" }}>
             <h2 style={{ margin: "0 0 12px", fontSize: 16, fontWeight: 800, color: "#333" }}>📤 Subí tu diseño</h2>
             <p style={{ margin: "0 0 16px", fontSize: 13, color: "#666" }}>
-              Pegá la URL de la imagen con tu diseño. Podés usar servicios gratuitos como <strong>imgBB.com</strong> o <strong>imgur.com</strong>.
+              Subí una imagen de tu diseño (JPG, PNG). Lo procesamos y lo renderizamos en la camiseta.
             </p>
-            <form onSubmit={handleUpload} style={{ display: "flex", gap: 8 }}>
-              <input type="url" value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://... (URL de tu imagen)" required style={{ flex: 1, padding: "10px 12px", border: "1px solid #ddd", borderRadius: 10, fontSize: 13 }} />
-              <button type="submit" disabled={uploading} style={{ padding: "10px 20px", background: "#6c63ff", color: "#fff", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: uploading ? "not-allowed" : "pointer", opacity: uploading ? 0.6 : 1 }}>
-                {uploading ? "Subiendo..." : "Subir ✅"}
-              </button>
-            </form>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                setUploading(true);
+                try {
+                  const reader = new FileReader();
+                  reader.onload = async (ev) => {
+                    const base64 = ev.target?.result as string;
+                    const r = await fetch(`${API}/design-requests/public/${token}/upload-image`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ image: base64 }),
+                    });
+                    const data = await r.json();
+                    if (data.error) { alert(data.error); return; }
+                    const r2 = await fetch(`${API}/design-requests/public/${token}`);
+                    setDr(await r2.json());
+                  };
+                  reader.readAsDataURL(file);
+                } catch { alert("Error al subir imagen"); }
+                finally { setUploading(false); }
+              }}
+              style={{ marginBottom: 12, fontSize: 13 }}
+            />
+            {uploading && <p style={{ color: "#6c63ff", fontSize: 13, margin: "4px 0" }}>⏳ Subiendo imagen...</p>}
+            <div style={{ borderTop: "1px solid #eee", paddingTop: 12, marginTop: 4 }}>
+              <p style={{ margin: "0 0 8px", fontSize: 12, color: "#888" }}>O pegá una URL de imagen:</p>
+              <form onSubmit={handleUpload} style={{ display: "flex", gap: 8 }}>
+                <input type="url" value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://... (URL de imagen)" style={{ flex: 1, padding: "8px 10px", border: "1px solid #ddd", borderRadius: 8, fontSize: 13 }} />
+                <button type="submit" disabled={uploading || !imageUrl} style={{ padding: "8px 16px", background: "#3498db", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: uploading ? "not-allowed" : "pointer" }}>
+                  Usar URL
+                </button>
+              </form>
+            </div>
           </div>
         )}
 
