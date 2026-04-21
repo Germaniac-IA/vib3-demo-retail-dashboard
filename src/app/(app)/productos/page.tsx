@@ -18,6 +18,8 @@ type Product = {
   brand_id: number; brand_name: string;
   is_active: boolean;
   image_url: string;
+  genera_diseno: boolean;
+  diseno_template_url: string;
 };
 
 export default function ProductosPage() {
@@ -43,6 +45,8 @@ export default function ProductosPage() {
     stock_quantity: "", min_stock: "", requires_stock: false,
     is_premium: false, premium_level: 5, cost_price: "", uses_inputs: false,
     image_url: "",
+    genera_diseno: false,
+    diseno_template_url: "",
     _pendingImage: "" as string | undefined,
     _hasComponents: false,
     _orig_image_url: "",   // original value when modal opened (for change detection)
@@ -90,7 +94,7 @@ export default function ProductosPage() {
 
   function openNew() {
     setEditing(null);
-    setForm({ name: "", sku: "", sku_externo: "", description: "", commercial_description: "", price: "", unit: "unidad", category_id: "", brand_id: "", stock_quantity: "", min_stock: "", requires_stock: false, is_premium: false, premium_level: 5, cost_price: "", uses_inputs: false, image_url: "", _pendingImage: "", _orig_image_url: "", _orig_commercial_description: "" });
+    setForm({ name: "", sku: "", sku_externo: "", description: "", commercial_description: "", price: "", unit: "unidad", category_id: "", brand_id: "", stock_quantity: "", min_stock: "", requires_stock: false, is_premium: false, premium_level: 5, cost_price: "", uses_inputs: false, image_url: "", genera_diseno: false, diseno_template_url: "", _pendingImage: "", _orig_image_url: "", _orig_commercial_description: "" });
     setComponents([]);
     setPendingComponents([]);
     setSelectedInput("");
@@ -110,6 +114,8 @@ export default function ProductosPage() {
       cost_price: String(p.cost_price || ""), uses_inputs: false,
       image_url: p.image_url || "",
       commercial_description: p.commercial_description || "",
+      genera_diseno: p.genera_diseno || false,
+      diseno_template_url: p.diseno_template_url || "",
       _pendingImage: "",
       _hasComponents: false,
       _orig_image_url: p.image_url || "",
@@ -175,6 +181,8 @@ export default function ProductosPage() {
       if (!hasLocalImage) {
         payload.image_url = form.image_url;
       }
+      payload.genera_diseno = form.genera_diseno;
+      payload.diseno_template_url = form.diseno_template_url || null;
       let savedId = editing ? editing.id : null;
       if (editing) {
         await putJson(`/products/${editing.id}`, payload);
@@ -530,6 +538,30 @@ export default function ProductosPage() {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginTop: "8px" }}>
                   <Input label="Stock actual" value={form.stock_quantity} onChange={(v) => setForm({ ...form, stock_quantity: v })} placeholder="0" type="number" />
                   <Input label="Stock minimo" value={form.min_stock} onChange={(v) => setForm({ ...form, min_stock: v })} placeholder="0" type="number" />
+                </div>
+              )}
+            </div>
+
+            <div style={{ marginTop: "12px", padding: "12px", background: "#f8f8f8", borderRadius: "10px" }}>
+              <label style={{ fontSize: "13px", fontWeight: 600, display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+                <input type="checkbox" checked={form.genera_diseno} onChange={(e) => setForm({ ...form, genera_diseno: e.target.checked })} />
+                Genera Diseño (vincula a módulo de diseño)
+              </label>
+              {form.genera_diseno && (
+                <div style={{ marginTop: "8px" }}>
+                  <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px", color: "#555" }}>Plantilla</label>
+                  <select
+                    value={form.diseno_template_url}
+                    onChange={(e) => setForm({ ...form, diseno_template_url: e.target.value })}
+                    style={{ width: "100%", padding: "6px 8px", border: "1px solid #ddd", borderRadius: "8px", fontSize: "13px" }}
+                  >
+                    <option value="">Seleccionar plantilla...</option>
+                    <option value="http://149.50.148.131:4100/templates/plantilla-camiseta.png">Camiseta manga corta</option>
+                    <option value="http://149.50.148.131:4100/templates/plantilla-musculosa.png">Musculosa / sin mangas</option>
+                  </select>
+                  {form.diseno_template_url && (
+                    <img src={form.diseno_template_url} alt="preview" style={{ marginTop: "8px", maxHeight: "80px", objectFit: "contain", borderRadius: "6px", border: "1px solid #ddd" }} />
+                  )}
                 </div>
               )}
             </div>
