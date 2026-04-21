@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "VIB3.ia Dashboard",
+  title: "Baver Dashboard",
   description: "Dashboard comercial y operativo de VIB3.ia Dashboard",
 };
 
