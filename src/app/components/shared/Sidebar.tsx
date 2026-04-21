@@ -42,6 +42,7 @@ const NAV_STRUCTURE: NavSection[] = [
       { label: "Pagos", icon: "💸", href: "/pagos" },
       { label: "Entregas", icon: "🚚", href: "/entregas" },
       { label: "Anticipos", icon: "💳", href: "/anticipos" },
+      { label: "Diseño", icon: "🎨", href: "/diseno" },
     ],
   },
 ];
