@@ -11,6 +11,8 @@ type InputItem = { id: number; name: string; unit: string; default_cost: number;
 type SaleChannel = { id: number; name: string; is_active: boolean; sort_order: number; has_delivery: boolean };
 type OrderStatus = { id: number; name: string; color: string; sort_order: number; is_active: boolean };
 type PaymentStatus = { id: number; name: string; color: string; sort_order: number; is_active: boolean };
+type AttributeType = { id: number; name: string; sort_order: number; is_active: boolean };
+type AttributeValue = { id: number; attribute_type_id: number; value: string; sort_order: number; type_name?: string };
 
 function CompactABM({ title, items, onAdd, onEdit, onDelete, renderItem }: {
   title: string; items: any[];
@@ -666,6 +668,164 @@ function InputItemsABM() {
 }
 
 
+// ─── TIPOS DE ATRIBUTO ────────────────────────────
+function AttributeTypesABM() {
+  const [items, setItems] = useState<AttributeType[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<AttributeType | null>(null);
+  const [form, setForm] = useState({ name: "", sort_order: 0, is_active: true });
+  const [saving, setSaving] = useState(false);
+
+  function load() {
+    setLoading(true);
+    fetchJson<AttributeType[]>("/attribute-types").then(data => {
+      const sorted = [...data].sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name));
+      setItems(sorted);
+    }).catch(console.error).finally(() => setLoading(false));
+  }
+  useEffect(() => { load(); }, []);
+
+  function openNew() { setEditing(null); setForm({ name: "", sort_order: 0, is_active: true }); setShowForm(true); }
+  function openEdit(t: AttributeType) { setEditing(t); setForm({ name: t.name, sort_order: t.sort_order ?? 0, is_active: t.is_active !== false }); setShowForm(true); }
+  async function handleSave() {
+    if (!form.name.trim()) return;
+    setSaving(true);
+    try {
+      if (editing) await putJson("/attribute-types/" + editing.id, form);
+      else await postJson("/attribute-types", form);
+      setShowForm(false); load();
+    } catch (e) { console.error(e); } finally { setSaving(false); }
+  }
+  async function remove(id: number) { if (!confirm("Eliminar?")) return; try { await deleteJson("/attribute-types/" + id); load(); } catch (e) { console.error(e); } }
+  function renderItem(t: AttributeType) {
+    return (
+      <div key={t.id} style={{ padding: "5px 0", borderBottom: "1px solid #f5", fontSize: "12px", display: "flex", alignItems: "center", gap: "6px" }}>
+        <span style={{ flex: 1, fontWeight: 600 }}>{t.name}</span>
+        <span style={{ fontSize: "10px", background: "#e3f2fd", color: "#1565c0", padding: "1px 5px", borderRadius: "4px" }}>#{t.sort_order}</span>
+        {!t.is_active && <span style={{ fontSize: "10px", background: "#ffebee", color: "#c62828", padding: "1px 5px", borderRadius: "4px" }}>Inactivo</span>}
+        <IconButton variant="ghost" title="Editar" onClick={() => openEdit(t)}>✏️</IconButton>
+        <IconButton variant="danger" title="Eliminar" onClick={() => remove(t.id)}>🗑️</IconButton>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <CompactABM title="📏 Tipos de Atributo" items={items} onAdd={openNew} onEdit={openEdit} onDelete={remove} renderItem={renderItem} />
+      {showForm && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}
+             onClick={(e) => e.target === e.currentTarget && setShowForm(false)}>
+          <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", width: "100%" }}>
+            <h3 style={{ margin: "0 0 16px", fontSize: "16px", fontWeight: 800 }}>{editing ? "Editar" : "Nuevo"} Tipo de Atributo</h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              <input value={form.name} onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Nombre del tipo de atributo" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }} />
+              <input type="number" value={form.sort_order} min={0}
+                onChange={e => setForm(f => ({ ...f, sort_order: Number(e.target.value) }))}
+                placeholder="Orden de ordenamiento" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }} />
+              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", cursor: "pointer" }}>
+                <input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} />
+                Activo
+              </label>
+            </div>
+            <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
+              <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "1px solid #ddd", background: "#fff", cursor: "pointer" }}>Cancelar</button>
+              <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "none", background: "#1a1a2e", color: "#fff", cursor: "pointer", fontWeight: 700 }}>{saving ? "..." : "Guardar"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+// ─── VALORES DE ATRIBUTO ───────────────────────────
+function AttributeValuesABM() {
+  const [items, setItems] = useState<AttributeValue[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<AttributeValue | null>(null);
+  const [form, setForm] = useState({ attribute_type_id: 0, value: "", sort_order: 0 });
+  const [saving, setSaving] = useState(false);
+  const [attributeTypes, setAttributeTypes] = useState<AttributeType[]>([]);
+
+  function load() {
+    setLoading(true);
+    fetchJson<AttributeValue[]>("/attribute-values").then(data => {
+      const sorted = [...data].sort((a, b) => {
+        const tnCmp = (a.type_name || "").localeCompare(b.type_name || "");
+        if (tnCmp !== 0) return tnCmp;
+        if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
+        return (a.value || "").localeCompare(b.value || "");
+      });
+      setItems(sorted);
+    }).catch(console.error).finally(() => setLoading(false));
+  }
+  useEffect(() => {
+    load();
+    fetchJson<AttributeType[]>("/attribute-types").then(types => {
+      const sorted = [...types].sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name));
+      setAttributeTypes(sorted);
+    }).catch(console.error);
+  }, []);
+
+  function openNew() { setEditing(null); setForm({ attribute_type_id: 0, value: "", sort_order: 0 }); setShowForm(true); }
+  function openEdit(v: AttributeValue) { setEditing(v); setForm({ attribute_type_id: v.attribute_type_id, value: v.value, sort_order: v.sort_order ?? 0 }); setShowForm(true); }
+  async function handleSave() {
+    if (!form.value.trim() || form.attribute_type_id === 0) return;
+    setSaving(true);
+    try {
+      if (editing) await putJson("/attribute-values/" + editing.id, form);
+      else await postJson("/attribute-values", form);
+      setShowForm(false); load();
+    } catch (e) { console.error(e); } finally { setSaving(false); }
+  }
+  async function remove(id: number) { if (!confirm("Eliminar?")) return; try { await deleteJson("/attribute-values/" + id); load(); } catch (e) { console.error(e); } }
+  function renderItem(v: AttributeValue) {
+    return (
+      <div key={v.id} style={{ padding: "5px 0", borderBottom: "1px solid #f5", fontSize: "12px", display: "flex", alignItems: "center", gap: "6px" }}>
+        <span style={{ flex: 1, fontWeight: 600 }}>{v.value}</span>
+        <span style={{ fontSize: "10px", color: "#888" }}>{v.type_name}</span>
+        <span style={{ fontSize: "10px", background: "#e8f5e9", color: "#2e7d32", padding: "1px 5px", borderRadius: "4px" }}>#{v.sort_order}</span>
+        <IconButton variant="ghost" title="Editar" onClick={() => openEdit(v)}>✏️</IconButton>
+        <IconButton variant="danger" title="Eliminar" onClick={() => remove(v.id)}>🗑️</IconButton>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <CompactABM title="📐 Valores de Atributo" items={items} onAdd={openNew} onEdit={openEdit} onDelete={remove} renderItem={renderItem} />
+      {showForm && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}
+             onClick={(e) => e.target === e.currentTarget && setShowForm(false)}>
+          <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", width: "100%" }}>
+            <h3 style={{ margin: "0 0 16px", fontSize: "16px", fontWeight: 800 }}>{editing ? "Editar" : "Nuevo"} Valor de Atributo</h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              <select value={form.attribute_type_id} onChange={e => setForm(f => ({ ...f, attribute_type_id: Number(e.target.value) }))}
+                style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }}>
+                <option value={0}>-- Seleccionar tipo --</option>
+                {attributeTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+              <input value={form.value} onChange={e => setForm(prev => ({ ...prev, value: e.target.value }))}
+                placeholder="Valor del atributo" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }} />
+              <input type="number" value={form.sort_order} min={0}
+                onChange={e => setForm(f => ({ ...f, sort_order: Number(e.target.value) }))}
+                placeholder="Orden" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }} />
+            </div>
+            <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
+              <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "1px solid #ddd", background: "#fff", cursor: "pointer" }}>Cancelar</button>
+              <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "none", background: "#1a1a2e", color: "#fff", cursor: "pointer", fontWeight: 700 }}>{saving ? "..." : "Guardar"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+
 export default function ParametrosPage() {
   return (
     <div>
@@ -675,12 +835,16 @@ export default function ParametrosPage() {
           <PaymentMethodsABM />
           <CategoriesABM />
           <BrandsABM />
+            <AttributeTypesABM />
+          <AttributeTypesABM />
         </div>
         <div>
+          <AttributeValuesABM />
           <SaleChannelsABM />
           <OrderStatusesABM />
           <PaymentStatusesABM />
           <InputItemsABM />
+            <AttributeValuesABM />
         </div>
       </div>
     </div>
