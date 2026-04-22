@@ -36,6 +36,17 @@ interface DesignRequest {
 }
 
 interface FeedbackEntry {
+interface DesignItem {
+  id: number;
+  design_request_id: number;
+  item_number: number;
+  head: string | null;
+  center: string | null;
+  footer: string | null;
+  talle: string | null;
+  created_at: string;
+  updated_at: string;
+}
   id: number;
   author: "client" | "agent" | "designer";
   message: string;
@@ -72,7 +83,11 @@ export default function DisenoPage() {
   const [copiedLink, setCopiedLink] = useState(false);
   const [newOrderId, setNewOrderId] = useState("");
   const [createLoading, setCreateLoading] = useState(false);
-  const [createError, setCreateError] = useState("");
+    const [designItems, setDesignItems] = useState<DesignItem[]>([]);
+  const [showItems, setShowItems] = useState(false);
+  const [savingItems, setSavingItems] = useState(false);
+  const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
+  const [itemDraft, setItemDraft] = useState({ item_number: "", head: "", center: "", footer: "", talle: "" });  const [createError, setCreateError] = useState("");
 
   const loadRequests = useCallback(async () => {
     try {
@@ -86,6 +101,39 @@ export default function DisenoPage() {
   }, []);
 
   useEffect(() => { loadRequests(); }, [loadRequests]);
+  useEffect(() => { if (selected) loadDesignItems(selected.id); }, [selected]);
+
+  
+  async function loadDesignItems(drId: number) {
+    try {
+      const items = await getJson<DesignItem[]>(`/design-requests/${drId}/items`);
+      setDesignItems(items);
+    } catch (e) { console.error(e); }
+  }
+
+  async function saveDesignItems(drId: number) {
+    setSavingItems(true);
+    try {
+      await postJson(`/design-requests/${drId}/items`, { items: designItems });
+      setEditingItemIdx(null);
+    } catch (e) { console.error(e); }
+    finally { setSavingItems(false); }
+  }
+
+  function addItem() {
+    const nextNum = designItems.length > 0 ? Math.max(...designItems.map(i => i.item_number)) + 1 : 1;
+    setDesignItems(prev => [...prev, { id: 0, design_request_id: selected!.id, item_number: nextNum, head: null, center: null, footer: null, talle: null, created_at: "", updated_at: "" }]);
+    setEditingItemIdx(designItems.length);
+    setItemDraft({ item_number: String(nextNum), head: "", center: "", footer: "", talle: "" });
+  }
+
+  function updateItem(idx: number, field: string, value: string) {
+    setDesignItems(prev => prev.map((item, i) => i === idx ? { ...item, [field]: value || null } : item));
+  }
+
+  function removeItem(idx: number) {
+    setDesignItems(prev => prev.filter((_, i) => i !== idx));
+  }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -160,7 +208,13 @@ export default function DisenoPage() {
   async function handleGenerateLink() {
     if (!selected) return;
     try {
-      const result = await postJson<{ token: string }>(`/design-requests/${selected.id}/generate-link`, {});
+      const result = await postJson<any>(`/design-requests/${selected.id}/generate-link`, {});
+
+      // Aseguramos que el token quede disponible para el copiar inmediatamente
+      if (result?.token) {
+        setSelected(prev => (prev ? { ...prev, token: result.token, token_expires_at: result.token_expires_at } : prev));
+      }
+
       const updated = await getJson<DesignRequest>(`/design-requests/${selected.id}`);
       setSelected(updated);
     } catch (e) {
@@ -229,8 +283,8 @@ export default function DisenoPage() {
                 <div style={{ fontSize: 12, color: "#666", marginBottom: 2 }}>👤 {r.contact_name}</div>
               )}
               <div style={{ fontSize: 12, color: "#888" }}>
-                Seña: <strong style={{ color: r.seña_amount > 0 ? "#27ae60" : "#999" }}>
-                  {r.seña_amount > 0 ? `$${Number(r.seña_amount).toLocaleString("es-AR")} ✅` : "Sin seña"}
+                Seña: <strong style={{ color: (r as any).seña_pagada_real > 0 ? "#27ae60" : "#999" }}>
+                  {(r as any).seña_pagada_real > 0 ? `$${Number((r as any).seña_pagada_real).toLocaleString("es-AR")} ✅` : "Sin seña"}
                 </strong>
               </div>
               <div style={{ marginTop: 6, fontSize: 11, color: STATUS_COLORS[r.status] }}>
@@ -374,6 +428,82 @@ export default function DisenoPage() {
                   {sendingFeedback ? "Enviando..." : "Enviar 💬"}
                 </button>
               </div>
+
+            {/* Design Items Table — Production Data */}
+            <div style={{ background: "#fff", borderRadius: 16, padding: "20px 24px", marginBottom: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.06)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>📋 Detalle de Produccion</h3>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={addItem} style={{ padding: "6px 12px", background: "#6c63ff", color: "#fff", border: "none", borderRadius: 8, fontSize: 12, cursor: "pointer", fontWeight: 600 }}>
+                    + Agregar item
+                  </button>
+                  {designItems.length > 0 && (
+                    <button onClick={() => saveDesignItems(selected!.id)} disabled={savingItems} style={{ padding: "6px 12px", background: savingItems ? "#aaa" : "#27ae60", color: "#fff", border: "none", borderRadius: 8, fontSize: 12, cursor: savingItems ? "not-allowed" : "pointer", fontWeight: 600 }}>
+                      {savingItems ? "Guardando..." : "Guardar todo"}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {designItems.length === 0 ? (
+                <div style={{ textAlign: "center", color: "#ccc", fontSize: 13, padding: "20px 0" }}>
+                  Sin items. Hacé clic en "+ Agregar item" para anadir el detalle de produccion.
+                </div>
+              ) : (
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ background: "#f9f9f9" }}>
+                      <th style={{ padding: "8px 6px", textAlign: "center", fontWeight: 700, color: "#555", width: 50 }}>#</th>
+                      <th style={{ padding: "8px 6px", textAlign: "center", fontWeight: 700, color: "#555" }}>Head</th>
+                      <th style={{ padding: "8px 6px", textAlign: "center", fontWeight: 700, color: "#555" }}>Center</th>
+                      <th style={{ padding: "8px 6px", textAlign: "center", fontWeight: 700, color: "#555" }}>Footer</th>
+                      <th style={{ padding: "8px 6px", textAlign: "center", fontWeight: 700, color: "#555", width: 80 }}>Talle</th>
+                      <th style={{ padding: "8px 6px", width: 60 }}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {designItems.map((item, idx) => (
+                      <tr key={item.id || idx} style={{ borderBottom: "1px solid #f0f0f0" }}>
+                        <td style={{ padding: "6px", textAlign: "center", fontWeight: 600, color: "#888" }}>
+                          {editingItemIdx === idx ? (
+                            <input value={itemDraft.item_number} onChange={e => { const v = e.target.value; setItemDraft({ ...itemDraft, item_number: v }); updateItem(idx, "item_number", v); }} style={{ width: 40, padding: "4px", border: "1px solid #ddd", borderRadius: 6, fontSize: 12, textAlign: "center" }} />
+                          ) : item.item_number}
+                        </td>
+                        <td style={{ padding: "6px" }}>
+                          {editingItemIdx === idx ? (
+                            <input value={itemDraft.head || ""} onChange={e => { const v = e.target.value; setItemDraft({ ...itemDraft, head: v }); updateItem(idx, "head", v); }} style={{ width: "100%", padding: "4px 6px", border: "1px solid #ddd", borderRadius: 6, fontSize: 12, boxSizing: "border-box" }} />
+                          ) : <span style={{ color: item.head ? "#333" : "#ccc" }}>{item.head || "—"}</span>}
+                        </td>
+                        <td style={{ padding: "6px" }}>
+                          {editingItemIdx === idx ? (
+                            <input value={itemDraft.center || ""} onChange={e => { const v = e.target.value; setItemDraft({ ...itemDraft, center: v }); updateItem(idx, "center", v); }} style={{ width: "100%", padding: "4px 6px", border: "1px solid #ddd", borderRadius: 6, fontSize: 12, boxSizing: "border-box" }} />
+                          ) : <span style={{ color: item.center ? "#333" : "#ccc" }}>{item.center || "—"}</span>}
+                        </td>
+                        <td style={{ padding: "6px" }}>
+                          {editingItemIdx === idx ? (
+                            <input value={itemDraft.footer || ""} onChange={e => { const v = e.target.value; setItemDraft({ ...itemDraft, footer: v }); updateItem(idx, "footer", v); }} style={{ width: "100%", padding: "4px 6px", border: "1px solid #ddd", borderRadius: 6, fontSize: 12, boxSizing: "border-box" }} />
+                          ) : <span style={{ color: item.footer ? "#333" : "#ccc" }}>{item.footer || "—"}</span>}
+                        </td>
+                        <td style={{ padding: "6px", textAlign: "center" }}>
+                          {editingItemIdx === idx ? (
+                            <input value={itemDraft.talle || ""} onChange={e => { const v = e.target.value; setItemDraft({ ...itemDraft, talle: v }); updateItem(idx, "talle", v); }} style={{ width: 60, padding: "4px", border: "1px solid #ddd", borderRadius: 6, fontSize: 12, textAlign: "center" }} />
+                          ) : <span style={{ color: item.talle ? "#333" : "#ccc" }}>{item.talle || "—"}</span>}
+                        </td>
+                        <td style={{ padding: "6px", textAlign: "center" }}>
+                          {editingItemIdx === idx ? (
+                            <button onClick={() => { setEditingItemIdx(null); setItemDraft({ item_number: "", head: "", center: "", footer: "", talle: "" }); }} style={{ padding: "4px 8px", background: "#27ae60", color: "#fff", border: "none", borderRadius: 6, fontSize: 11, cursor: "pointer" }}>OK</button>
+                          ) : (
+                            <button onClick={() => { setEditingItemIdx(idx); setItemDraft({ item_number: String(item.item_number), head: item.head || "", center: item.center || "", footer: item.footer || "", talle: item.talle || "" }); }} style={{ padding: "4px 8px", background: "#3498db", color: "#fff", border: "none", borderRadius: 6, fontSize: 11, cursor: "pointer" }}>Editar</button>
+                          )}
+                          <button onClick={() => removeItem(idx)} style={{ marginLeft: 4, padding: "4px 8px", background: "#e74c3c", color: "#fff", border: "none", borderRadius: 6, fontSize: 11, cursor: "pointer" }}>X</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
             </div>
           </>
         )}

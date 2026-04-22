@@ -29,6 +29,17 @@ interface DesignData {
 }
 
 interface FeedbackEntry {
+interface DesignItem {
+  id: number;
+  design_request_id: number;
+  item_number: number;
+  head: string | null;
+  center: string | null;
+  footer: string | null;
+  talle: string | null;
+  created_at: string;
+  updated_at: string;
+}
   id: number;
   author: "client" | "agent" | "designer";
   message: string;
@@ -58,7 +69,10 @@ export default function PublicDesignPage({ params }: { params: Promise<{ token: 
   const [sendingFeedback, setSendingFeedback] = useState(false);
   const [wizard, setWizard] = useState({ estilo: "", deporte: "", corte: "", rasgos: "" });
   const [savingWizard, setSavingWizard] = useState(false);
-  const [wizardSaved, setWizardSaved] = useState(false);
+  const [wizardSaved, setWizardSaved] = useState(false);  const [designItems, setDesignItems] = useState<DesignItem[]>([]);
+  const [savingItems, setSavingItems] = useState(false);
+  const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
+  const [itemDraft, setItemDraft] = useState({ item_number: "", head: "", center: "", footer: "", talle: "" });
 
   useEffect(() => {
     fetch(`${API}/design-requests/public/${token}`)
@@ -72,6 +86,7 @@ export default function PublicDesignPage({ params }: { params: Promise<{ token: 
       })
       .catch(() => setError("Error al cargar"))
       .finally(() => setLoading(false));
+      if (d && !d.error) loadDesignItems(d.id);
   }, [token]);
 
   async function handleUpload(e: React.FormEvent) {
@@ -107,6 +122,43 @@ export default function PublicDesignPage({ params }: { params: Promise<{ token: 
       setDr(await r.json());
     } catch { alert("Error al enviar"); }
     finally { setSendingFeedback(false); }
+  }
+
+  
+  async function loadDesignItems(drId: number) {
+    try {
+      const r = await fetch(`${API}/design-requests/public/${token}/items`);
+      const items = await r.json();
+      setDesignItems(Array.isArray(items) ? items : []);
+    } catch { console.error('Error loading design items'); }
+  }
+
+  async function saveDesignItems(drId: number) {
+    setSavingItems(true);
+    try {
+      await fetch(`${API}/design-requests/public/${token}/items`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: designItems }),
+      });
+      setEditingItemIdx(null);
+    } catch { alert('Error al guardar items'); }
+    finally { setSavingItems(false); }
+  }
+
+  function addItem() {
+    const nextNum = designItems.length > 0 ? Math.max(...designItems.map(i => i.item_number)) + 1 : 1;
+    setDesignItems(prev => [...prev, { id: 0, design_request_id: dr!.id, item_number: nextNum, head: null, center: null, footer: null, talle: null, created_at: '', updated_at: '' }]);
+    setEditingItemIdx(designItems.length);
+    setItemDraft({ item_number: String(nextNum), head: '', center: '', footer: '', talle: '' });
+  }
+
+  function updateItem(idx: number, field: string, value: string) {
+    setDesignItems(prev => prev.map((item, i) => i === idx ? { ...item, [field]: value || null } : item));
+  }
+
+  function removeItem(idx: number) {
+    setDesignItems(prev => prev.filter((_, i) => i !== idx));
   }
 
   async function handleSaveWizard() {
@@ -223,6 +275,74 @@ export default function PublicDesignPage({ params }: { params: Promise<{ token: 
             </button>
           </div>
         )}
+
+        {/* Design Items — Production Table (always visible) */}
+        <div style={{ background: "#fff", borderRadius: 16, padding: "20px 24px", marginBottom: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.06)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#333" }}>📋 Detalle de Produccion</h2>
+            <button onClick={addItem} style={{ padding: "6px 12px", background: "#6c63ff", color: "#fff", border: "none", borderRadius: 8, fontSize: 12, cursor: "pointer", fontWeight: 600 }}>
+              + Agregar item
+            </button>
+          </div>
+          <p style={{ margin: "0 0 12px", fontSize: 12, color: "#888" }}>Completá el detalle de cada camiseta: posicion del estampado y talle.</p>
+
+          {designItems.length === 0 && (
+            <div style={{ textAlign: "center", color: "#ccc", fontSize: 13, padding: "16px 0" }}>
+              Sin items cargados. Hacé clic en "+ Agregar item".
+            </div>
+          )}
+          {designItems.length > 0 && (
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: "#f9f9f9" }}>
+                  <th style={{ padding: "8px 6px", textAlign: "center", fontWeight: 700, color: "#555", width: 50 }}>#</th>
+                  <th style={{ padding: "8px 6px", textAlign: "center", fontWeight: 700, color: "#555" }}>Head</th>
+                  <th style={{ padding: "8px 6px", textAlign: "center", fontWeight: 700, color: "#555" }}>Center</th>
+                  <th style={{ padding: "8px 6px", textAlign: "center", fontWeight: 700, color: "#555" }}>Footer</th>
+                  <th style={{ padding: "8px 6px", textAlign: "center", fontWeight: 700, color: "#555", width: 80 }}>Talle</th>
+                  <th style={{ padding: "8px 6px", width: 100 }}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {designItems.map((item, idx) => (
+                  <tr key={item.id || idx} style={{ borderBottom: "1px solid #f0f0f0" }}>
+                    <td style={{ padding: "6px", textAlign: "center", fontWeight: 600, color: "#888" }}>
+                      {editingItemIdx === idx ? (
+                        <input value={itemDraft.item_number} onChange={e => { const v = e.target.value; setItemDraft({ ...itemDraft, item_number: v }); updateItem(idx, "item_number", v); }} style={{ width: 40, padding: "4px", border: "1px solid #ddd", borderRadius: 6, fontSize: 12, textAlign: "center" }} />
+                      ) : item.item_number}
+                    </td>
+                    {["head", "center", "footer"].map(field => (
+                      <td key={field} style={{ padding: "6px" }}>
+                        {editingItemIdx === idx ? (
+                          <input value={(itemDraft as any)[field] || ""} onChange={e => { const v = e.target.value; setItemDraft({ ...itemDraft, [field]: v }); updateItem(idx, field, v); }} style={{ width: "100%", padding: "4px 6px", border: "1px solid #ddd", borderRadius: 6, fontSize: 12, boxSizing: "border-box" }} />
+                        ) : <span style={{ color: (item as any)[field] ? "#333" : "#ccc" }}>{(item as any)[field] || "—"}</span>}
+                      </td>
+                    ))}
+                    <td style={{ padding: "6px", textAlign: "center" }}>
+                      {editingItemIdx === idx ? (
+                        <input value={itemDraft.talle || ""} onChange={e => { const v = e.target.value; setItemDraft({ ...itemDraft, talle: v }); updateItem(idx, "talle", v); }} style={{ width: 60, padding: "4px", border: "1px solid #ddd", borderRadius: 6, fontSize: 12, textAlign: "center" }} />
+                      ) : <span style={{ color: item.talle ? "#333" : "#ccc" }}>{item.talle || "—"}</span>}
+                    </td>
+                    <td style={{ padding: "6px", display: "flex", gap: 4, justifyContent: "center" }}>
+                      {editingItemIdx === idx ? (
+                        <button onClick={() => { setEditingItemIdx(null); setItemDraft({ item_number: "", head: "", center: "", footer: "", talle: "" }); }} style={{ padding: "4px 8px", background: "#27ae60", color: "#fff", border: "none", borderRadius: 6, fontSize: 11, cursor: "pointer" }}>OK</button>
+                      ) : (
+                        <button onClick={() => { setEditingItemIdx(idx); setItemDraft({ item_number: String(item.item_number), head: item.head || "", center: item.center || "", footer: item.footer || "", talle: item.talle || "" }); }} style={{ padding: "4px 8px", background: "#3498db", color: "#fff", border: "none", borderRadius: 6, fontSize: 11, cursor: "pointer" }}>Editar</button>
+                      )}
+                      <button onClick={() => removeItem(idx)} style={{ padding: "4px 8px", background: "#e74c3c", color: "#fff", border: "none", borderRadius: 6, fontSize: 11, cursor: "pointer" }}>X</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {designItems.length > 0 && (
+            <button onClick={() => saveDesignItems(dr!.id)} disabled={savingItems} style={{ marginTop: 12, width: "100%", padding: "10px", background: savingItems ? "#aaa" : "#27ae60", color: "#fff", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: savingItems ? "not-allowed" : "pointer" }}>
+              {savingItems ? "Guardando..." : "Guardar items de produccion"}
+            </button>
+          )}
+        </div>
+
 
         {/* Upload section */}
         {(dr.status === "pending_template" || dr.status === "template_uploaded") && (
