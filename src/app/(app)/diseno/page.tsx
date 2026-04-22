@@ -36,6 +36,12 @@ interface DesignRequest {
 }
 
 interface FeedbackEntry {
+  id: number;
+  author: "client" | "agent" | "designer";
+  message: string;
+  created_at: string;
+}
+
 interface DesignItem {
   id: number;
   design_request_id: number;
@@ -46,11 +52,6 @@ interface DesignItem {
   talle: string | null;
   created_at: string;
   updated_at: string;
-}
-  id: number;
-  author: "client" | "agent" | "designer";
-  message: string;
-  created_at: string;
 }
 
 const STATUS_LABELS: Record<DesignStatus, string> = {
