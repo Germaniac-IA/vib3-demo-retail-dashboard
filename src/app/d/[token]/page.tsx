@@ -83,11 +83,11 @@ export default function PublicDesignPage({ params }: { params: Promise<{ token: 
         else {
           setDr(d);
           setWizard({ estilo: d.estilo || "", deporte: d.deporte || "", corte: d.corte || "", rasgos: d.rasgos || "" });
+          loadDesignItems(d.id);
         }
       })
       .catch(() => setError("Error al cargar"))
       .finally(() => setLoading(false));
-      if (d && !d.error) loadDesignItems(d.id);
   }, [token]);
 
   async function handleUpload(e: React.FormEvent) {
