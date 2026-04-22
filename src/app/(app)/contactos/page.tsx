@@ -23,6 +23,8 @@ type Contact = {
   condicion_iibb: string;
   calificacion: number;
   deleted_at: string | null;
+  entity_id: number | null;
+  entity_name?: string;
 };
 
 type SortField = "name" | "phone" | "email" | "location" | "condicion_iva" | "calificacion";
@@ -43,9 +45,11 @@ export default function ContactosPage() {
     name: "", phone: "", email: "", address: "", location: "", notes: "",
     whatsapp: "", instagram: "", tiktok: "",
     condicion_iva: "", cuit: "", condicion_iibb: "", calificacion: 5,
+    entity_id: 0 as number,
   });
   const [isMobile, setIsMobile] = useState(false);
   const [isTiny, setIsTiny] = useState(false);
+  const [entities, setEntities] = useState<{id: number; name: string}[]>([]);
 
   useEffect(() => {
     const onResize = () => {
@@ -65,9 +69,11 @@ export default function ContactosPage() {
     Promise.all([
       fetchJson<Contact[]>("/contacts"),
       fetchJson<CondicionIva[]>("/condiciones-iva"),
-    ]).then(([c, iva]) => {
+      fetchJson<{id: number; name: string}>("/entities"),
+    ]).then(([c, iva, ents]) => {
       setContacts(c);
       setCondicionesIva(iva);
+      setEntities(ents || []);
     }).catch(console.error)
       .finally(() => setLoading(false));
   }, []);
@@ -77,6 +83,7 @@ export default function ContactosPage() {
     setForm({
       name: "", phone: "", email: "", address: "", location: "", notes: "",
       whatsapp: "", instagram: "", tiktok: "", condicion_iva: "", cuit: "", condicion_iibb: "", calificacion: 5,
+      entity_id: 0,
     });
     setShowForm(true);
   }
@@ -190,6 +197,16 @@ export default function ContactosPage() {
             <Input label="Email" value={form.email} onChange={(v) => setForm({ ...form, email: v })} />
             <Input label="Instagram" value={form.instagram} onChange={(v) => setForm({ ...form, instagram: v })} />
             <Input label="TikTok" value={form.tiktok} onChange={(v) => setForm({ ...form, tiktok: v })} />
+            </div>
+            <div>
+              <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px", color: "#555" }}>Club / Entidad</label>
+              <select value={form.entity_id} onChange={(e) => setForm({ ...form, entity_id: Number(e.target.value) })}
+                style={{ width: "100%", padding: "8px 10px", border: "1px solid #ddd", borderRadius: "8px", fontSize: "13px" }}>
+                <option value={0}>Sin asignar</option>
+                {entities.map(ent => <option key={ent.id} value={ent.id}>{ent.name}</option>)}
+              </select>
+            </div>
+            <div>
             <Input label="Dirección" value={form.address} onChange={(v) => setForm({ ...form, address: v })} />
             <Input label="Localidad" value={form.location} onChange={(v) => setForm({ ...form, location: v })} />
           </div>
@@ -267,6 +284,7 @@ export default function ContactosPage() {
                     {c.instagram && <span>📷 @{c.instagram.replace('@', '')}</span>}
                     {c.tiktok && <span>🎵 @{c.tiktok.replace('@', '')}</span>}
                     {c.condicion_iva && <span>🏛️ {condicionesIva.find(x => x.value === c.condicion_iva)?.label || c.condicion_iva}</span>}
+                    {(c as any).entity_name && <span style={{ fontSize: "11px", background: "#e3f2fd", color: "#1565c0", padding: "2px 6px", borderRadius: "6px" }}>🏢 {(c as any).entity_name}</span>}
                     {c.cuit && <span>🔢 {c.cuit}</span>}
                   </div>
                 </div>

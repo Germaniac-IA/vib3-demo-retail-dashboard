@@ -835,18 +835,88 @@ export default function ParametrosPage() {
           <PaymentMethodsABM />
           <CategoriesABM />
           <BrandsABM />
-            <AttributeTypesABM />
           <AttributeTypesABM />
+          <EntitiesABM />
         </div>
         <div>
-          <AttributeValuesABM />
           <SaleChannelsABM />
           <OrderStatusesABM />
           <PaymentStatusesABM />
           <InputItemsABM />
-            <AttributeValuesABM />
+          <AttributeValuesABM />
         </div>
       </div>
     </div>
   );
 }
+function EntitiesABM() {
+  const [items, setItems] = useState<Entity[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<Entity | null>(null);
+  const [form, setForm] = useState({ name: "", notes: "", is_active: true });
+  const [saving, setSaving] = useState(false);
+
+  function load() {
+    setLoading(true);
+    fetchJson<Entity[]>("/entities").then(setItems).catch(console.error).finally(() => setLoading(false));
+  }
+  useEffect(() => { load(); }, []);
+
+  function openNew() { setEditing(null); setForm({ name: "", notes: "", is_active: true }); setShowForm(true); }
+  function openEdit(e: Entity) { setEditing(e); setForm({ name: e.name, notes: e.notes || "", is_active: e.is_active !== false }); setShowForm(true); }
+
+  async function handleSave() {
+    if (!form.name.trim()) return;
+    setSaving(true);
+    try {
+      if (editing) await putJson("/entities/" + editing.id, form);
+      else await postJson("/entities", form);
+      setShowForm(false); load();
+    } catch (e) { console.error(e); } finally { setSaving(false); }
+  }
+
+  async function remove(id: number) { if (!confirm("Eliminar?")) return; try { await deleteJson("/entities/" + id); load(); } catch (e) { console.error(e); } }
+
+  function renderItem(e: Entity) {
+    return (
+      <div key={e.id} style={{ padding: "5px 0", borderBottom: "1px solid #f5", fontSize: "12px", display: "flex", alignItems: "center", gap: "6px" }}>
+        <span style={{ flex: 1, fontWeight: 600 }}>{e.name}</span>
+        {e.notes && <span style={{ fontSize: "11px", color: "#aaa", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.notes}</span>}
+        {e.is_active === false && <span style={{ fontSize: "10px", background: "#f0f0f0", color: "#888", padding: "1px 5px", borderRadius: "4px" }}>inactivo</span>}
+        <IconButton variant="ghost" title="Editar" onClick={() => openEdit(e)}>✏️</IconButton>
+        <IconButton variant="danger" title="Eliminar" onClick={() => remove(e.id)}>🗑️</IconButton>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <CompactABM title="🏢 Entidades / Clubes" items={items} onAdd={openNew} onEdit={openEdit} onDelete={remove} renderItem={renderItem} />
+      {showForm && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}
+             onClick={(e) => e.target === e.currentTarget && setShowForm(false)}>
+          <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", width: "100%" }}>
+            <h3 style={{ margin: "0 0 16px", fontSize: "16px", fontWeight: 800 }}>{editing ? "Editar" : "Nueva"} Entidad / Club</h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              <input value={form.name} onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Nombre (ej: Club San Juan)" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }} />
+              <textarea value={form.notes} onChange={e => setForm(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder="Notas (opcional)" rows={3} style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px", resize: "vertical" }} />
+              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", cursor: "pointer" }}>
+                <input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} />
+                Activo
+              </label>
+            </div>
+            <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
+              <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "1px solid #ddd", background: "#fff", cursor: "pointer" }}>Cancelar</button>
+              <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "none", background: "#1a1a2e", color: "#fff", cursor: "pointer", fontWeight: 700 }}>{saving ? "..." : "Guardar"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+
