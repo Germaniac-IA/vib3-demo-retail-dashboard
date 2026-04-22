@@ -218,6 +218,7 @@ export default function DisenoPage() {
 
       const updated = await getJson<DesignRequest>(`/design-requests/${selected.id}`);
       setSelected(updated);
+      loadDesignItems(selected.id);
     } catch (e) {
       console.error(e);
     }
