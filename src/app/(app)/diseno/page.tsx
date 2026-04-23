@@ -238,6 +238,20 @@ export default function DisenoPage() {
     }
   }
 
+  async function handleResetDesign() {
+    if (!selected) return;
+    if (!confirm("¿Reiniciar el diseño? Esto volverá el pedido a estado 'Con feedback' y limpiará la imagen renderizada.")) return;
+    try {
+      await postJson(`/design-requests/${selected.id}/reset`, {});
+      const updated = await getJson<DesignRequest>(`/design-requests/${selected.id}`);
+      setSelected(updated);
+      loadRequests();
+    } catch (e) {
+      console.error(e);
+      alert("Error al reiniciar: " + (e as Error).message);
+    }
+  }
+
   async function handleGenerateLink() {
     if (!selected) return;
     try {
@@ -258,8 +272,20 @@ export default function DisenoPage() {
 
   async function handleCopyLink() {
     if (!selected?.token) return;
-    const link = `${window.location.origin}/d/${selected.token}`;
-    await navigator.clipboard.writeText(link);
+    const link = `http://149.50.148.131:4101/d/${selected.token}`;
+    try {
+      await navigator.clipboard.writeText(link);
+    } catch {
+      // Fallback for HTTP environments
+      const el = document.createElement("textarea");
+      el.value = link;
+      el.style.position = "fixed";
+      el.style.opacity = "0";
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+    }
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
   }
@@ -360,6 +386,11 @@ export default function DisenoPage() {
                 {selected.client_uploaded_image_url && selected.status !== "rendering" && (
                   <button onClick={handleRender} disabled={rendering} style={{ padding: "8px 14px", background: rendering ? "#aaa" : "#9b59b6", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, cursor: rendering ? "not-allowed" : "pointer", fontWeight: 600 }}>
                     {rendering ? "🎨 Renderizando..." : "🎨 Re-renderizar"}
+                  </button>
+                )}
+                {(selected.status === "rendered" || selected.status === "approved" || selected.status === "feedback" || selected.status === "production_ready") && (
+                  <button onClick={handleResetDesign} style={{ padding: "8px 14px", background: "#e67e22", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, cursor: "pointer", fontWeight: 600 }}>
+                    🔄 Reiniciar diseño
                   </button>
                 )}
                 {(selected.status === "rendered" || selected.status === "feedback") && (
