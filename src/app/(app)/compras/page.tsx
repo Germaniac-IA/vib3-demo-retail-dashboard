@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { fetchJson, postJson, deleteJson } from "../../lib";
 import { Card, Badge, PageTitle, Loading, Empty } from "../../components/shared/UI";
+import AttributeAllocationModal from "../../components/AttributeAllocationModal";
 
 type PO = { id: number; order_number: string; provider_name: string; subtotal: number; discount_value: number; delivery_fee: number; total: number; status_name: string; status_color: string; payment_status_name: string; payment_status_color: string; notes: string; created_at: string; };
 type PS = { id: number; name: string; color: string; };
@@ -73,9 +74,33 @@ export default function ComprasPage() {
   });
 
   async function handleReceive(orderId: number) {
-    if (!confirm("Recibir NP e incrementar stock?")) return;
-    try { await postJson("/purchase-orders/" + orderId + "/receive", {}); setRefreshKey(k => k + 1); }
-    catch (e) { alert("Error al recibir NP"); }
+    try {
+      const [order, products] = await Promise.all([fetchJson<any>("/purchase-orders/" + orderId), fetchJson<any[]>("/products")]);
+      const productMap = new Map(products.map((p: any) => [Number(p.id), p]));
+      const itemsNeedingAllocation = [];
+      for (const item of (order.items || [])) {
+        const product = productMap.get(Number(item.product_id));
+        if (product?.requires_stock && product?.has_attributes) {
+          const attrs = await fetchJson<any[]>(`/products/${item.product_id}/attributes`);
+          itemsNeedingAllocation.push({
+            key: String(item.id),
+            purchase_item_id: item.id,
+            title: item.product_name,
+            totalQuantity: Number(item.quantity || 0),
+            options: attrs.map((a: any) => ({ attribute_value_id: a.attribute_value_id, value: a.value, stock_quantity: a.stock_quantity })),
+            allocations: [],
+            showStock: false,
+          });
+        }
+      }
+      if (!itemsNeedingAllocation.length) {
+        if (!confirm("Recibir NP e incrementar stock?")) return;
+        await postJson("/purchase-orders/" + orderId + "/receive", { allocations: [] });
+        setRefreshKey(k => k + 1);
+        return;
+      }
+      setReceiveAllocationModal({ orderId, items: itemsNeedingAllocation });
+    } catch (e: any) { alert("Error: " + (e?.message || "No se pudo preparar la recepción")); }
   }
 
   async function handleDelete(id: number) {
@@ -181,7 +206,7 @@ export default function ComprasPage() {
             try {
               await postJson("/purchase-orders/" + receiveAllocationModal.orderId + "/receive", {
                 allocations: receiveAllocationModal.items.map((item: any) => ({
-                  purchase_item_id: Number(item.id),
+                  purchase_item_id: Number(item.purchase_item_id),
                   allocations: result[item.key] || [],
                 })),
               });
@@ -612,8 +637,8 @@ function NewNPModal({ onClose, onCreated }: { onClose: () => void; onCreated: ()
         <div style={{ display: "flex", gap: "8px" }}>
           <button onClick={onClose} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "1px solid #ddd", background: "#fff", cursor: "pointer" }}>Cancelar</button>
           <button onClick={handleSave} disabled={saving} style={{ flex: 2, padding: "10px", borderRadius: "8px", border: "none", background: "#27ae60", color: "#fff", cursor: saving ? "not-allowed" : "pointer", fontWeight: 700, opacity: saving ? 0.7 : 1 }}>{saving ? "Guardando..." : "✅ Crear Compra"}</button>
-        </div>
       </div>
+    </div>
     </div>
   );
 }
@@ -622,6 +647,7 @@ function NPDetailModal({ orderId, onClose, onUpdated }: any) {
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [allocationModal, setAllocationModal] = useState<{ orderId: number; items: any[] } | null>(null);
 
   useEffect(() => {
     fetchJson("/purchase-orders/" + orderId)
@@ -631,23 +657,35 @@ function NPDetailModal({ orderId, onClose, onUpdated }: any) {
   }, [orderId]);
 
   async function handleReceive() {
-    if (!confirm("Marcar como Recibida e incrementar stock?")) return;
     try {
-      await postJson("/purchase-orders/" + orderId + "/receive", {});
-      onUpdated();
-    } catch (e) {
-      alert("Error");
+      const products = await fetchJson<any[]>("/products");
+      const productMap = new Map(products.map((p: any) => [Number(p.id), p]));
+      const itemsNeedingAllocation = [];
+      for (const item of (order.items || [])) {
+        const product = productMap.get(Number(item.product_id));
+        if (product?.requires_stock && product?.has_attributes) {
+          const attrs = await fetchJson<any[]>(`/products/${item.product_id}/attributes`);
+          itemsNeedingAllocation.push({
+            key: String(item.id),
+            purchase_item_id: item.id,
+            title: item.product_name,
+            totalQuantity: Number(item.quantity || 0),
+            options: attrs.map((a: any) => ({ attribute_value_id: a.attribute_value_id, value: a.value, stock_quantity: a.stock_quantity })),
+            allocations: [],
+            showStock: false,
+          });
+        }
+      }
+      if (!itemsNeedingAllocation.length) {
+        if (!confirm("Marcar como Recibida e incrementar stock?")) return;
+        await postJson("/purchase-orders/" + orderId + "/receive", { allocations: [] });
+        onUpdated();
+        return;
+      }
+      setAllocationModal({ orderId, items: itemsNeedingAllocation });
+    } catch (e: any) {
+      alert("Error: " + (e?.message || "No se pudo preparar la recepción"));
     }
-  }
-
-  function handleAllocate() {
-    // Build allocation items with has_attributes flag
-    const allocItems = (order.items || []).map((item: any) => ({
-      ...item,
-      has_attributes: item.has_attributes || false,
-      quantity_ordered: item.quantity,
-    }));
-    setReceiveAllocationModal({ orderId, items: allocItems });
   }
 
   if (loading) return (
@@ -686,14 +724,8 @@ function NPDetailModal({ orderId, onClose, onUpdated }: any) {
         {order.payment_status_name && <Badge color={order.payment_status_color}>{order.payment_status_name}</Badge>}
         <span style={{ padding: "6px 10px", borderRadius: "8px", background: "#f0f0f0", fontSize: "13px", color: "#666" }}>📍 Compra</span>
         {order.status_name !== "Recibido" && (
-            <button onClick={() => {
-            if (confirm("¿Recibir directo (incrementa stock directo) o répartir por atributos?")) {
-              handleReceive();
-            } else {
-              handleAllocate();
-            }
-          }} style={{ padding: "6px 14px", borderRadius: "8px", border: "none", background: "#27ae60", color: "#fff", cursor: "pointer", fontSize: "13px", fontWeight: 700 }}>
-            Marcar Recibida ▾
+            <button onClick={handleReceive} style={{ padding: "6px 14px", borderRadius: "8px", border: "none", background: "#27ae60", color: "#fff", cursor: "pointer", fontSize: "13px", fontWeight: 700 }}>
+            Marcar Recibida
           </button>
         )}
       </div>
