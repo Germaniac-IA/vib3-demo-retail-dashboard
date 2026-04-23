@@ -95,7 +95,7 @@ export default function VentasPage() {
     }).catch(console.error).finally(() => setLoading(false));
   }
 
-  useEffect(() => { load(); }, [refreshKey, period]);
+  useEffect(() => { load(); }, [refreshKey, period, customFrom, customTo]);
 
   function handleCreated() { setShowNew(false); setRefreshKey(k => k + 1); }
 
@@ -208,7 +208,7 @@ function handleExportExcel() {
           {(["today", "week", "month", "custom"] as Period[]).map(p => (
             <button key={p} onClick={() => setPeriod(p)}
               style={{ padding: "5px 12px", borderRadius: "6px", border: "none", background: period === p ? "#1a1a2e" : "transparent", color: period === p ? "#fff" : "#666", cursor: "pointer", fontSize: "12px", fontWeight: 700 }}>
-              {p === "today" ? "Hoy" : p === "week" ? "Semana" : "Mes"}
+              {p === "today" ? "Hoy" : p === "week" ? "Semana" : p === "custom" ? "Personalizado" : "Mes"}
             </button>
           ))}
         </div>
@@ -226,6 +226,8 @@ function handleExportExcel() {
                 Limpiar
               </button>
             )}
+              <button onClick={() => setRefreshKey(k => k + 1)}
+                style={{ padding: "5px 12px", borderRadius: "6px", border: "none", background: "#27ae60", color: "#fff", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>Aplicar</button>
           </div>
         )}
 
