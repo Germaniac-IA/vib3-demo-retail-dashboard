@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { fetchJson } from "../../lib";
+import * as XLSX from "xlsx";
 
 type Delivery = {
   id: number; order_id: number; address: string; scheduled_date: string;
@@ -149,6 +150,28 @@ export default function EntregasPage() {
     { label: "Cancelado", value: "Cancelado", count: stats.cancelled_count },
   ];
 
+  function handleExportExcel() {
+    const data = filtered.map(d => ({
+      "NV": d.order_number || "-",
+      "Estado": d.status_name || "-",
+      "Cliente": d.contact_name || "-",
+      "Teléfono": d.contact_phone || "-",
+      "Dirección": d.address || "-",
+      "Fecha programada": d.scheduled_date ? new Date(d.scheduled_date).toLocaleDateString("es-AR") : "-",
+      "Fecha entregada": d.delivered_date ? new Date(d.delivered_date).toLocaleDateString("es-AR") : "-",
+      "Total pedido": Number(d.order_total || 0),
+      "Costo envío": Number(d.delivery_fee || 0),
+      "Notas": d.notes || "-",
+      "Creada": d.created_at ? new Date(d.created_at).toLocaleString("es-AR") : "-",
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Entregas");
+    const filterName = activeFilter ? activeFilter.replace(/\s+/g, "_") : "todas";
+    XLSX.writeFile(wb, `Entregas_${filterName}.xlsx`);
+  }
+
   return (
     <div style={{ maxWidth: "900px", margin: "0 auto" }}>
       {/* Header */}
@@ -156,10 +179,27 @@ export default function EntregasPage() {
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 900 }}>🚚 Entregas</h1>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", justifyContent: "flex-end" }}>
           <p style={{ margin: 0, fontSize: "13px", color: "#888" }}>
             {stats.total_count} total
           </p>
+          <button
+            onClick={handleExportExcel}
+            disabled={filtered.length === 0}
+            style={{
+              padding: "7px 12px",
+              borderRadius: "8px",
+              border: "none",
+              cursor: filtered.length === 0 ? "not-allowed" : "pointer",
+              fontSize: "12px",
+              background: filtered.length === 0 ? "#cfcfcf" : "#27ae60",
+              color: "#fff",
+              fontWeight: 700,
+              opacity: filtered.length === 0 ? 0.7 : 1,
+            }}
+          >
+            ⬇ Excel
+          </button>
           <div style={{ display: "flex", gap: "4px", background: "#e0e0e0", borderRadius: "8px", padding: "3px" }}>
             <button onClick={() => setViewMode("list")} title="Lista" style={{ padding: "4px 10px", borderRadius: "6px", border: "none", cursor: "pointer", fontSize: "13px", background: viewMode === "list" ? "#1a1a2e" : "transparent", color: viewMode === "list" ? "#fff" : "#555", fontWeight: 600 }}>☰</button>
             <button onClick={() => setViewMode("cards")} title="Tarjetas" style={{ padding: "4px 10px", borderRadius: "6px", border: "none", cursor: "pointer", fontSize: "13px", background: viewMode === "cards" ? "#1a1a2e" : "transparent", color: viewMode === "cards" ? "#fff" : "#555", fontWeight: 600 }}>⊞</button>
