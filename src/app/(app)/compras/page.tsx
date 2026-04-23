@@ -792,10 +792,10 @@ function NPDetailModal({ orderId, onClose, onUpdated }: any) {
               <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", borderBottom: idx < order.items.length - 1 ? "1px solid #f0f0f0" : "none", fontSize: "13px" }}>
                 <span>
                   {item.quantity} × {item.product_name}
-                  {item.attribute_value_name ? <div style={{fontSize:'12px',color:'#555',marginTop:'2px'}}>Talle: {item.attribute_value_name}</div> : null}
+                  {item.attribute_value_name ? <span style={{display:'inline-flex',alignItems:'center',gap:'4px',background:'#1a56db',color:'#fff',padding:'2px 10px',borderRadius:'20px',fontSize:'11px',fontWeight:700,marginLeft:'8px'}}>Talle: {item.attribute_value_name}</span> : null}
                   {item.attribute_allocations && item.attribute_allocations.length > 0 ? (
-                    <div style={{fontSize:'12px',color:'#555',marginTop:'2px'}}>
-                      {item.attribute_allocations.map((a,i)=><div key={i}>{a.attribute_value_name || a.attribute_value_id} x{a.quantity}</div>)}
+                    <div style={{display:'flex',flexDirection:'column',gap:'2px',marginTop:'3px',marginLeft:'20px'}}>
+                      {item.attribute_allocations.map((a,i)=><span key={i} style={{fontSize:'11px',color:'#555'}}>Talle: <b>{a.attribute_value_name || a.attribute_value_id}</b> x{a.quantity}</span>)}
                     </div>
                   ) : null}
                 </span>
