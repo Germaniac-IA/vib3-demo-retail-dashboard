@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { fetchJson, postJson, deleteJson } from "../../lib";
+import * as XLSX from "xlsx";
 import { Card, Badge, PageTitle, Loading, Empty } from "../../components/shared/UI";
 import AttributeAllocationModal from "../../components/AttributeAllocationModal";
 
@@ -12,7 +13,7 @@ type Product = { id: number; name: string; price: number; stock_quantity: number
 type InputItem = { id: number; name: string; unit: string; default_cost: number; stock_quantity: number; last_cost: number; };
 type Provider = { id: number; name: string; business_name: string; tax_id: string; phone: string; whatsapp: string; email: string; };
 type Stat = { total_count: number; total_amount: number; };
-type Period = "today" | "week" | "month";
+type Period = "today" | "week" | "month" | "custom";
 
 function FieldInput({ label, value, onChange, placeholder, type = "text" }: any) {
   return (
@@ -42,6 +43,8 @@ export default function ComprasPage() {
   const [filterStatus, setFilterStatus] = useState("");
   const [filterPayment, setFilterPayment] = useState("");
   const [period, setPeriod] = useState<Period>("month");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
   const [stats, setStats] = useState<Stat | null>(null);
   const [ps, setPS] = useState<PS[]>([]);
   const [pst, setPst] = useState<Pst[]>([]);
@@ -55,16 +58,36 @@ export default function ComprasPage() {
   function load() {
     setLoading(true);
     Promise.all([
-      fetchJson<PO[]>("/purchase-orders"),
+      fetchJson<PO[]>("/purchase-orders" + (period === "custom" && customFrom && customTo ? "?date_from=" + customFrom + "&date_to=" + customTo : "")),
       fetchJson<PS[]>("/purchase-statuses"),
       fetchJson<Pst[]>("/payment-statuses"),
-      fetchJson<Stat>("/purchase-orders/stats?period=" + period),
+      fetchJson<Stat>("/purchase-orders/stats?period=" + period + (period === "custom" && customFrom && customTo ? "&from=" + customFrom + "&to=" + customTo : "")),
     ]).then(([o, p, pt, st]) => {
       setOrders(o); setPS(p); setPst(pt); setStats(st);
     }).catch(console.error).finally(() => setLoading(false));
   }
 
-  useEffect(() => { load(); }, [refreshKey, period]);
+  useEffect(() => { load(); }, [refreshKey, period, customFrom, customTo]);
+
+
+  function handleExportExcel() {
+    const data = filtered.map(o => ({
+      "NP": o.order_number,
+      "Fecha": new Date(o.created_at).toLocaleDateString("es-AR"),
+      "Proveedor": o.provider_name || "-",
+      "Total": Number(o.total || 0),
+      "Pagado": Number(o.payment_paid || 0),
+      "Saldo": Number(o.payment_pending || 0),
+      "Estado Pago": o.payment_status_name || "-",
+      "Status": o.status_name || "-",
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Compras");
+    const from = customFrom || "todas";
+    const to = customTo || "todas";
+    XLSX.writeFile(wb, "Compras_" + from + "_" + to + ".xlsx");
+  }
 
   const filtered = orders.filter(o => {
     if (search && !o.provider_name?.toLowerCase().includes(search.toLowerCase()) && !o.order_number?.toLowerCase().includes(search.toLowerCase())) return false;
@@ -128,12 +151,22 @@ export default function ComprasPage() {
       )}
 
       <div style={{ display: "flex", gap: "4px", background: "#f0f0f0", padding: "3px", borderRadius: "8px", marginBottom: "12px", width: "fit-content" }}>
-        {(["today", "week", "month"] as Period[]).map(p => (
+        {(["today", "week", "month", "custom"] as Period[]).map(p => (
           <button key={p} onClick={() => setPeriod(p)} style={{ padding: "5px 12px", borderRadius: "6px", border: "none", background: period === p ? "#1a1a2e" : "transparent", color: period === p ? "#fff" : "#666", cursor: "pointer", fontSize: "12px", fontWeight: 700 }}>
-            {p === "today" ? "Hoy" : p === "week" ? "Semana" : "Mes"}
+            {p === "today" ? "Hoy" : p === "week" ? "Semana" : p === "custom" ? "Personalizado" : "Mes"}
           </button>
         ))}
       </div>
+
+      {period === "custom" && (
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center", marginBottom: "12px" }}>
+          <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} style={{ padding: "6px 10px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }} />
+          <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} style={{ padding: "6px 10px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }} />
+          {(customFrom || customTo) && (
+            <button onClick={() => { setCustomFrom(""); setCustomTo(""); setPeriod("month"); }} style={{ padding: "5px 10px", borderRadius: "6px", border: "1px solid #ddd", background: "#fff", color: "#666", fontSize: "12px", cursor: "pointer" }}>Limpiar</button>
+          )}
+        </div>
+      )}
 
       <div style={{ display: "flex", gap: "8px", marginBottom: "12px", flexWrap: "wrap" }}>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar NP o proveedor..." style={{ flex: 1, minWidth: "160px", padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }} />
@@ -146,6 +179,7 @@ export default function ComprasPage() {
           {pst.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
         </select>
         <button onClick={() => setShowNew(true)} style={{ padding: "8px 16px", borderRadius: "8px", border: "none", background: "#27ae60", color: "#fff", cursor: "pointer", fontSize: "13px", fontWeight: 700 }}>➕ Nueva Compra</button>
+        <button onClick={handleExportExcel} style={{ padding: "8px 16px", borderRadius: "8px", border: "1px solid #ddd", background: "#fff", color: "#1a1a2e", cursor: "pointer", fontSize: "13px", fontWeight: 700 }}>📥 Excel</button>
       </div>
 
       {loading ? <Loading /> : filtered.length === 0 ? <Empty message="Sin notas de pedido" /> : (
