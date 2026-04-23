@@ -10,6 +10,8 @@ export type Product = {
   unit: string;
   stock?: number;
   discontinued?: number;
+  requires_stock?: boolean;
+  has_attributes?: boolean;
   description?: string;
   technical_info?: string;
 };

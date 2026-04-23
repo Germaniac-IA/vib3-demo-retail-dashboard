@@ -20,6 +20,7 @@ type Product = {
   image_url: string;
   genera_diseno: boolean;
   diseno_template_url: string;
+  has_attributes: boolean;
 };
 
 export default function ProductosPage() {
@@ -39,6 +40,9 @@ export default function ProductosPage() {
   const [search, setSearch] = useState("");
   const [showAll, setShowAll] = useState(false);
   const [viewMode, setViewMode] = useState<"cards" | "list">("cards");
+  const [productAttributes, setProductAttributes] = useState<any[]>([]);
+  const [allAttributeValues, setAllAttributeValues] = useState<any[]>([]);
+  const [newAttrValue, setNewAttrValue] = useState("");
   const [form, setForm] = useState({
     name: "", sku: "", sku_externo: "", description: "", commercial_description: "",
     price: "", unit: "unidad", category_id: "", brand_id: "",
@@ -46,6 +50,7 @@ export default function ProductosPage() {
     is_premium: false, premium_level: 5, cost_price: "", uses_inputs: false,
     image_url: "",
     genera_diseno: false,
+    has_attributes: false,
     diseno_template_url: "",
     _pendingImage: "" as string | undefined,
     _hasComponents: false,
@@ -116,6 +121,7 @@ export default function ProductosPage() {
       commercial_description: p.commercial_description || "",
       genera_diseno: p.genera_diseno || false,
       diseno_template_url: p.diseno_template_url || "",
+      has_attributes: p.has_attributes || false,
       _pendingImage: "",
       _hasComponents: false,
       _orig_image_url: p.image_url || "",
@@ -125,6 +131,13 @@ export default function ProductosPage() {
     setInputQty("1");
     setShowForm(true);
     loadComponents(p.id);
+    Promise.all([
+      fetchJson<any[]>("/products/" + p.id + "/attributes"),
+      fetchJson<any[]>("/attribute-values"),
+    ]).then(([attrs, attrVals]) => {
+      setProductAttributes(attrs || []);
+      setAllAttributeValues(attrVals || []);
+    }).catch(console.error);
   }
 
   async function addComponent() {
@@ -172,6 +185,7 @@ export default function ProductosPage() {
         stock_quantity: form.requires_stock ? (Number(form.stock_quantity) || 0) : 0,
         min_stock: form.requires_stock ? (Number(form.min_stock) || 0) : 0,
         requires_stock: form.requires_stock,
+        has_attributes: form.has_attributes,
         is_premium: form.is_premium, premium_level: form.is_premium ? (Number(form.premium_level) || 5) : null,
         cost_price: form.uses_inputs ? 0 : (Number(form.cost_price) || 0),
         commercial_description: form.commercial_description,
@@ -276,7 +290,7 @@ export default function ProductosPage() {
       `}</style>
 
     <div style={{ width: "100%" }}>
-      <PageTitle>📦 Productos</PageTitle>
+      <PageTitle>📦 PRODUCTOS DEBUG LU TESTEO</PageTitle>
       <div style={{ background: "linear-gradient(135deg, #6c63ff15, #1a1a2e08)", border: "1px solid #6c63ff30", borderRadius: "12px", padding: "14px 18px", marginBottom: "20px", fontSize: "12px", color: "#666", lineHeight: "1.5" }}>
         <strong style={{ color: "#6c63ff" }}>📦 Catalogo de productos</strong><br />
         Carga tus productos, asignales categoria y marca, defini precios y niveles premium.
@@ -502,7 +516,7 @@ export default function ProductosPage() {
               {(form.image_url || (form as any)._pendingImage) && (
                 <div style={{ marginTop: "8px", width: "80px", height: "80px", borderRadius: "8px", overflow: "hidden", border: "1px solid #eee" }}>
                   <img src={(form as any)._pendingImage || form.image_url} alt="preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                </div>
+                  </div>
               )}
             </div>
 
@@ -525,19 +539,22 @@ export default function ProductosPage() {
                   <input type="range" min="1" max="10" value={form.premium_level}
                     onChange={(e) => setForm({ ...form, premium_level: parseInt(e.target.value) })}
                     style={{ width: "100%", accentColor: "#6c63ff" }} />
-                </div>
+                  </div>
               )}
             </div>
 
             <div style={{ marginTop: "12px", padding: "12px", background: "#f8f8f8", borderRadius: "10px" }}>
               <label style={{ fontSize: "13px", fontWeight: 600, display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
-                <input type="checkbox" checked={form.requires_stock} onChange={(e) => setForm({ ...form, requires_stock: e.target.checked })} />
+                <input type="checkbox" checked={form.requires_stock} onChange={(e) => setForm({ ...form, requires_stock: e.target.checked, ...(e.target.checked ? {} : { stock_quantity: 0, min_stock: 0 }) })} />
                 Controla stock
               </label>
               {form.requires_stock && (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginTop: "8px" }}>
-                  <Input label="Stock actual" value={form.stock_quantity} onChange={(v) => setForm({ ...form, stock_quantity: v })} placeholder="0" type="number" />
-                  <Input label="Stock minimo" value={form.min_stock} onChange={(v) => setForm({ ...form, min_stock: v })} placeholder="0" type="number" />
+                <div style={{ marginTop: "8px" }}>
+                  {form.has_attributes && <div style={{ fontSize: "11px", color: "#888", marginBottom: "8px" }}>Cuando hay atributos + stock, el stock total sale de la suma de sus atributos.</div>}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                    <Input label="Stock actual" value={form.stock_quantity} onChange={(v) => setForm({ ...form, stock_quantity: v })} placeholder="0" type="number" disabled={form.has_attributes || !form.requires_stock} />
+                    <Input label="Stock minimo" value={form.min_stock} onChange={(v) => setForm({ ...form, min_stock: v })} placeholder="0" type="number" disabled={form.has_attributes || !form.requires_stock} />
+                  </div>
                 </div>
               )}
             </div>
@@ -565,6 +582,87 @@ export default function ProductosPage() {
                 </div>
               )}
             </div>
+
+            <label style={{ marginTop: "12px", display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", cursor: "pointer" }}>
+              <input type="checkbox" checked={form.has_attributes} onChange={(e) => setForm({ ...form, has_attributes: e.target.checked })} />
+              <span>📏 Tiene atributos / talles</span>
+            </label>
+
+            {form.has_attributes && (
+              <div style={{ marginTop: "12px", padding: "12px", background: "#f8f9fa", borderRadius: "10px" }}>
+                <div style={{ fontSize: "13px", fontWeight: 700, marginBottom: "10px" }}>📏 Atributos / Talles</div>
+                <div style={{ marginTop: "10px" }}>
+                    {productAttributes.length > 0 && (
+                      <div style={{ marginBottom: "8px" }}>
+                        <div style={{ fontSize: "11px", fontWeight: 700, color: "#888", marginBottom: "4px", textTransform: "uppercase" }}>Atributos vinculados</div>
+                        {productAttributes.map((attr: any) => {
+                          const attrVal = allAttributeValues.find((v: any) => v.id === attr.attribute_value_id);
+                          return (
+                            <div key={attr.id} style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px", padding: "6px 8px", background: "#fff", borderRadius: "6px", border: "1px solid #eee" }}>
+                              <span style={{ flex: 1, fontSize: "12px" }}>{attrVal?.value || `Attr #${attr.attribute_value_id}`}</span>
+                              <input
+                                type="number"
+                                min="0"
+                                value={attr.stock_quantity ?? attr.stock_quantity ?? 0}
+                                onChange={async (e) => {
+                                  const newStock = Number(e.target.value);
+                                  try {
+                                    await putJson(`/products/${editing?.id}/attributes/${attr.attribute_value_id}/stock`, { stock_quantity: newStock });
+                                    setProductAttributes(prev => prev.map(a => a.id === attr.id ? { ...a, stock_quantity: newStock } : a));
+                                  } catch (err) { console.error(err); }
+                                }}
+                                style={{ width: "70px", padding: "4px 6px", border: "1px solid #ddd", borderRadius: "6px", fontSize: "12px", textAlign: "right" }}
+                              />
+                              <span style={{ fontSize: "11px", color: "#888" }}>stock</span>
+                              <button
+                                onClick={async () => {
+                                  if (!confirm("Eliminar este atributo?")) return;
+                                  try {
+                                    await deleteJson(`/products/${editing?.id}/attributes/${attr.attribute_value_id}`);
+                                    setProductAttributes(prev => prev.filter(a => a.attribute_value_id !== attr.attribute_value_id));
+                                  } catch (err) { console.error(err); }
+                                }}
+                                style={{ padding: "2px 6px", fontSize: "11px", background: "#ff4444", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer" }}
+                              >🗑️</button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <div style={{ display: "flex", gap: "6px", alignItems: "flex-end" }}>
+                      <select
+                        value={newAttrValue}
+                        onChange={(e) => setNewAttrValue(e.target.value)}
+                        style={{ flex: 1, padding: "6px 8px", border: "1px solid #ddd", borderRadius: "8px", fontSize: "12px" }}
+                      >
+                        <option value="">Seleccionar valor de atributo...</option>
+                        {allAttributeValues
+                          .filter((v: any) => !productAttributes.find((a: any) => a.attribute_value_id === v.id))
+                          .map((v: any) => (
+                            <option key={v.id} value={String(v.id)}>{v.value}</option>
+                          ))}
+                      </select>
+                      <button
+                        onClick={async () => {
+                          if (!newAttrValue || !editing) return;
+                          try {
+                            const created = await postJson<any>(`/products/${editing.id}/attributes`, { attribute_value_id: Number(newAttrValue), stock_quantity: 0 });
+                            const newAttr = await fetchJson<any>(`/products/${editing.id}/attributes`);
+                            setProductAttributes(newAttr);
+                            setNewAttrValue("");
+                          } catch (err) { console.error(err); }
+                        }}
+                        style={{ background: "#6c63ff", color: "#fff", border: "none", borderRadius: "8px", padding: "6px 12px", fontSize: "12px", cursor: "pointer" }}
+                      >
+                        Vincular
+                      </button>
+                    </div>
+                    {allAttributeValues.length === 0 && (
+                      <div style={{ fontSize: "11px", color: "#e74c3c", marginTop: "4px" }}>No hay valores de atributos. Ve a Parametros - Valores de Atributos.</div>
+                    )}
+                </div>
+              </div>
+            )}
 
             <div style={{ marginTop: "12px", padding: "12px", background: "#f8f8f8", borderRadius: "10px" }}>
               <label style={{ fontSize: "13px", fontWeight: 600, display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>

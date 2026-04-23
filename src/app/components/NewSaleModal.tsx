@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { fetchJson, postJson } from "../lib";
 import NewContactModal from "./NewContactModal";
+import AttributeAllocationModal from "./AttributeAllocationModal";
 import type { Contact, Product, SaleChannel, OrderStatus, PaymentStatus, User } from "../types";
 
 type SaleChannel = { id: number; name: string; sort_order: number };
@@ -11,7 +12,9 @@ type PaymentStatus = { id: number; name: string; color: string; sort_order: numb
 type PaymentMethod = { id: number; name: string; is_cash: boolean };
 type User = { id: number; name: string; username: string };
 
-type ItemDraft = { product_id: number; product_name: string; quantity: number; unit_price: number };
+type AttributeAllocationDraft = { attribute_value_id: number; quantity: number; value?: string };
+type ProductAttributeOption = { attribute_value_id: number; value: string; stock_quantity?: number };
+type ItemDraft = { product_id: number; product_name: string; quantity: number; unit_price: number; requires_stock?: boolean; has_attributes?: boolean; attribute_allocations?: AttributeAllocationDraft[] };
 
 type Props = {
   saleChannels: SaleChannel[];
@@ -53,6 +56,7 @@ export default function NewSaleModal({ saleChannels, orderStatuses, paymentStatu
   });
 
   const [items, setItems] = useState<ItemDraft[]>([]);
+  const [allocationModal, setAllocationModal] = useState<{ idx: number; productName: string; totalQuantity: number; options: ProductAttributeOption[] } | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -128,15 +132,27 @@ export default function NewSaleModal({ saleChannels, orderStatuses, paymentStatu
     }
   }, [total, pagaEnElActo, advanceSeleccionado]);
 
+  async function openAllocationEditor(idx: number, productOverride?: Product) {
+    const baseItem = items[idx];
+    const product = productOverride || products.find(pr => pr.id === baseItem?.product_id);
+    if (!product || !product.requires_stock || !product.has_attributes) return;
+    const attrs = await fetchJson<ProductAttributeOption[]>(`/products/${product.id}/attributes`);
+    setAllocationModal({ idx, productName: product.name, totalQuantity: Number(baseItem?.quantity || 0), options: attrs.map(a => ({ attribute_value_id: a.attribute_value_id, value: a.value, stock_quantity: a.stock_quantity })) });
+  }
+
   function addProduct(p: Product) {
     if (items.find(i => i.product_id === p.id)) return;
-    setItems([...items, { product_id: p.id, product_name: p.name, quantity: 1, unit_price: Number(p.price) || 0 }]);
+    const newIndex = items.length;
+    setItems([...items, { product_id: p.id, product_name: p.name, quantity: 1, unit_price: Number(p.price) || 0, requires_stock: p.requires_stock, has_attributes: p.has_attributes, attribute_allocations: [] }]);
     setProductSearch("");
     setShowProductDropdown(false);
   }
 
   function updateItem(idx: number, field: keyof ItemDraft, value: any) {
     setItems(items.map((item, i) => i === idx ? { ...item, [field]: value } : item));
+    if (field === "quantity") {
+      setAllocationModal(prev => prev && prev.idx === idx ? { ...prev, totalQuantity: Number(value || 0) } : prev);
+    }
   }
 
   function removeItem(idx: number) {
@@ -151,6 +167,29 @@ export default function NewSaleModal({ saleChannels, orderStatuses, paymentStatu
     try {
       const effectiveCashAmount = Number(montoPagado) || 0;
 
+      const expandedItems = items.flatMap(i => {
+        if (i.requires_stock && i.has_attributes) {
+          const allocations = (i.attribute_allocations || []).filter(a => Number(a.quantity) > 0);
+          const allocatedQty = allocations.reduce((s, a) => s + Number(a.quantity || 0), 0);
+          if (!allocations.length || allocatedQty !== Number(i.quantity || 0)) {
+            throw new Error(`Tenés que repartir correctamente los atributos de ${i.product_name}`);
+          }
+          return allocations.map(a => ({
+            product_id: i.product_id,
+            quantity: Number(a.quantity),
+            unit_price: i.unit_price,
+            attribute_value_id: a.attribute_value_id,
+            product_name: i.product_name,
+          }));
+        }
+        return [{
+          product_id: i.product_id,
+          quantity: i.quantity,
+          unit_price: i.unit_price,
+          product_name: i.product_name,
+        }];
+      });
+
       await postJson<{ id: number }>("/orders", {
         contact_id: selectedContact.id,
         seller_id: form.seller_id ? Number(form.seller_id) : undefined,
@@ -162,11 +201,7 @@ export default function NewSaleModal({ saleChannels, orderStatuses, paymentStatu
         discount_value: form.discount_value ? Number(form.discount_value) : undefined,
         delivery_fee: deliveryFee,
         notes: form.notes || undefined,
-        items: items.map(i => ({
-          product_id: i.product_id,
-          quantity: i.quantity,
-          unit_price: i.unit_price,
-        })),
+        items: expandedItems,
         delivery: (!isLocalChannel && (form.delivery_address || form.scheduled_date)) ? {
           address: form.delivery_address,
           location: form.delivery_location,
@@ -334,7 +369,17 @@ export default function NewSaleModal({ saleChannels, orderStatuses, paymentStatu
                   <span style={{ fontWeight: 700, minWidth: "70px", textAlign: "right" }}>
                     ${(item.quantity * item.unit_price).toLocaleString("es-AR")}
                   </span>
+                  {item.requires_stock && item.has_attributes && (
+                    <button onClick={() => openAllocationEditor(idx)} style={{ border: "1px solid #6c63ff", background: "#f3f1ff", color: "#6c63ff", borderRadius: "8px", padding: "6px 8px", cursor: "pointer", fontSize: "11px", fontWeight: 700 }}>Configurar atributos</button>
+                  )}
                   <button onClick={() => removeItem(idx)} style={{ background: "none", border: "none", color: "#e74c3c", cursor: "pointer", fontSize: "14px", padding: "2px 4px" }}>✕</button>
+                {item.requires_stock && item.has_attributes && (
+                    <div style={{ width: "100%", fontSize: "11px", color: "#666", marginTop: "4px" }}>
+                      {(item.attribute_allocations || []).length > 0
+                        ? `Reparto: ${(item.attribute_allocations || []).map(a => `${a.value || a.attribute_value_id}: ${a.quantity}`).join(", ")}`
+                        : "Falta repartir cantidad por atributos"}
+                    </div>
+                  )}
                 </div>
               ))}
               <div style={{ padding: "8px 12px", fontWeight: 800, fontSize: "13px", textAlign: "right", background: "#f9f9f9" }}>
@@ -520,6 +565,30 @@ export default function NewSaleModal({ saleChannels, orderStatuses, paymentStatu
               <button onClick={() => setAdvanceModalOpen(false)} style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #ddd", background: "#fff", cursor: "pointer", fontSize: "14px" }}>Cancelar</button>
             </div>
           </div>
+        )}
+
+
+        {allocationModal && (
+          <AttributeAllocationModal
+            title={`Repartir venta por atributos · ${allocationModal.productName}`}
+            items={[{
+              key: String(allocationModal.idx),
+              title: allocationModal.productName,
+              totalQuantity: allocationModal.totalQuantity,
+              options: allocationModal.options,
+              allocations: items[allocationModal.idx]?.attribute_allocations || [],
+              showStock: true,
+            }]}
+            onClose={() => setAllocationModal(null)}
+            onSave={(result) => {
+              const allocs = (result[String(allocationModal.idx)] || []).map(a => ({
+                ...a,
+                value: allocationModal.options.find(o => o.attribute_value_id === a.attribute_value_id)?.value || String(a.attribute_value_id),
+              }));
+              setItems(prev => prev.map((item, idx) => idx === allocationModal.idx ? { ...item, attribute_allocations: allocs } : item));
+              setAllocationModal(null);
+            }}
+          />
         )}
 
         {showAddContact && (

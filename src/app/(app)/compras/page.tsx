@@ -45,6 +45,7 @@ export default function ComprasPage() {
   const [ps, setPS] = useState<PS[]>([]);
   const [pst, setPst] = useState<Pst[]>([]);
   const [showNew, setShowNew] = useState(false);
+  const [receiveAllocationModal, setReceiveAllocationModal] = useState<{ orderId: number; items: any[] } | null>(null);
   const [hasOpenCashSession, setHasOpenCashSession] = useState(false);
   const [detailId, setDetailId] = useState<number | null>(null);
 
@@ -171,6 +172,27 @@ export default function ComprasPage() {
 
       {showNew && <NewNPModal onClose={() => setShowNew(false)} onCreated={() => { setShowNew(false); setRefreshKey(k => k + 1); }} />}
       {detailId && <NPDetailModal orderId={detailId} onClose={() => setDetailId(null)} onUpdated={() => setRefreshKey(k => k + 1)} />}
+      {receiveAllocationModal && (
+        <AttributeAllocationModal
+          title="Repartir compra por atributos"
+          items={receiveAllocationModal.items}
+          onClose={() => setReceiveAllocationModal(null)}
+          onSave={async (result) => {
+            try {
+              await postJson(/purchase-orders//receive, {
+                allocations: receiveAllocationModal.items.map((item: any) => ({
+                  purchase_item_id: Number(item.purchase_item_id),
+                  allocations: result[item.key] || [],
+                })),
+              });
+              setReceiveAllocationModal(null);
+              setRefreshKey(k => k + 1);
+            } catch (e: any) {
+              alert("Error: " + (e?.message || "No se pudo recibir"));
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

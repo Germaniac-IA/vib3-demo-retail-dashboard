@@ -135,6 +135,7 @@ export function Input({
   type = "text",
   placeholder,
   style,
+  disabled = false,
 }: {
   label?: string;
   value: string;
@@ -155,6 +156,7 @@ export function Input({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
+        disabled={disabled}
         style={{
           width: "100%",
           padding: "8px 12px",
@@ -162,6 +164,7 @@ export function Input({
           borderRadius: "8px",
           fontSize: "14px",
           boxSizing: "border-box",
+          ...(disabled ? { background: "#f5f5f5", color: "#888", cursor: "not-allowed" } : {}),
           ...style,
         }}
       />
@@ -201,6 +204,7 @@ export function Select({
           fontSize: "14px",
           boxSizing: "border-box",
           background: "#fff",
+          ...(disabled ? { background: "#f5f5f5", color: "#888", cursor: "not-allowed" } : {}),
           ...style,
         }}
       >
