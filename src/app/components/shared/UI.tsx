@@ -179,12 +179,14 @@ export function Select({
   onChange,
   options,
   style,
+  disabled,
 }: {
   label?: string;
   value: string;
   onChange: (v: string) => void;
   options: { value: string; label: string }[];
   style?: React.CSSProperties;
+  disabled?: boolean;
 }) {
   return (
     <div style={{ marginBottom: "12px" }}>
@@ -196,6 +198,7 @@ export function Select({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
         style={{
           width: "100%",
           padding: "8px 12px",
