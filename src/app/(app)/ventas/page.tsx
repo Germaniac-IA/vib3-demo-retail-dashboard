@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { fetchJson, postJson, deleteJson } from "../../lib";
+import * as XLSX from 'xlsx';
 import { Card, Badge, IconButton, PageTitle, Loading, Empty } from "../../components/shared/UI";
 import OrderDetailReadOnly from "../../components/OrderDetailReadOnly";
 import NewSaleModal from "../../components/NewSaleModal";
@@ -80,7 +81,7 @@ export default function VentasPage() {
   function load() {
     setLoading(true);
     Promise.all([
-      fetchJson<OrderRow[]>("/orders"),
+      fetchJson<OrderRow[]>("/orders" + (period === "custom" && customFrom && customTo ? "?date_from=" + customFrom + "&date_to=" + customTo : "")),
       fetchJson<SaleChannel[]>("/sale-channels"),
       fetchJson<OrderStatus[]>("/order-statuses"),
       fetchJson<PaymentStatus[]>("/payment-statuses"),
@@ -97,6 +98,28 @@ export default function VentasPage() {
   useEffect(() => { load(); }, [refreshKey, period]);
 
   function handleCreated() { setShowNew(false); setRefreshKey(k => k + 1); }
+
+function handleExportExcel() {
+  const data = orders.map(o => ({
+    "NV": o.order_number,
+    "Fecha": new Date(o.created_at).toLocaleDateString("es-AR"),
+    "Cliente": o.contact_name || "-",
+    "Canal": o.sale_channel_name || "-",
+    "Total": Number(o.total || 0),
+    "Pagado": Number(o.payment_paid || 0),
+    "Saldo": Number(o.payment_pending || 0),
+    "Estado Pago": o.payment_status_name || "-",
+    "Vendedor": o.seller_name || "-",
+    "Status": o.order_status_name || "-",
+  }));
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Ventas");
+  const from = customFrom || "todas";
+  const to = customTo || "todas";
+  XLSX.writeFile(wb, "Ventas_" + from + "_" + to + ".xlsx");
+}
+
 
   async function handleDelete(id: number, orderNumber: string) {
     if (!confirm(`¿Eliminar la venta ${orderNumber}? Esta acción no se puede deshacer.`)) return;
@@ -182,7 +205,7 @@ export default function VentasPage() {
       <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px", flexWrap: "wrap" }}>
         {/* Period filter */}
         <div style={{ display: "flex", gap: "4px", background: "#f0f0f0", padding: "3px", borderRadius: "8px" }}>
-          {(["today", "week", "month"] as Period[]).map(p => (
+          {(["today", "week", "month", "custom"] as Period[]).map(p => (
             <button key={p} onClick={() => setPeriod(p)}
               style={{ padding: "5px 12px", borderRadius: "6px", border: "none", background: period === p ? "#1a1a2e" : "transparent", color: period === p ? "#fff" : "#666", cursor: "pointer", fontSize: "12px", fontWeight: 700 }}>
               {p === "today" ? "Hoy" : p === "week" ? "Semana" : "Mes"}
@@ -219,6 +242,7 @@ export default function VentasPage() {
             style={{ padding: "8px 16px", borderRadius: "8px", border: "none", background: "#27ae60", color: "#fff", cursor: "pointer", fontSize: "13px", fontWeight: 700 }}>
             ➕ Nueva Venta
           </button>
+          <button onClick={handleExportExcel} style={{ padding: "8px 16px", borderRadius: "8px", border: "1px solid #ddd", background: "#fff", color: "#1a1a2e", cursor: "pointer", fontSize: "13px", fontWeight: 700 }}>📥 Excel</button>
         </div>
       </div>
 
