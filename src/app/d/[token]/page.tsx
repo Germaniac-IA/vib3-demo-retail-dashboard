@@ -226,7 +226,7 @@ export default function PublicDesignPage({ params }: { params: Promise<{ token: 
         )}
 
         {/* Wizard */}
-        {(dr.status === "pending_template" || dr.status === "template_uploaded") && (
+        {(dr.status === "pending_template" || dr.status === "template_uploaded" || (dr.status === "feedback" && !dr.rendered_image_url)) && (
           <div style={{ background: "#fff", borderRadius: 16, padding: "20px 24px", marginBottom: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.06)" }}>
             <h2 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 800, color: "#333" }}>🎨 Personalizá tu diseño</h2>
             <p style={{ margin: "0 0 16px", fontSize: 13, color: "#666" }}>Completá estos datos para personalizar el render de tu camiseta</p>
@@ -346,7 +346,7 @@ export default function PublicDesignPage({ params }: { params: Promise<{ token: 
 
 
         {/* Upload section */}
-        {(dr.status === "pending_template" || dr.status === "template_uploaded") && (
+        {(dr.status === "pending_template" || dr.status === "template_uploaded" || (dr.status === "feedback" && !dr.rendered_image_url)) && (
           <div style={{ background: "#fff", borderRadius: 16, padding: "20px 24px", marginBottom: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.06)" }}>
             <h2 style={{ margin: "0 0 12px", fontSize: 16, fontWeight: 800, color: "#333" }}>📤 Subí tu diseño</h2>
             <p style={{ margin: "0 0 16px", fontSize: 13, color: "#666" }}>
@@ -393,7 +393,7 @@ export default function PublicDesignPage({ params }: { params: Promise<{ token: 
         )}
 
         {/* Diseñar button */}
-        {(dr.status === "template_uploaded") && (
+        {(dr.status === "template_uploaded" || (dr.status === "feedback" && !dr.rendered_image_url)) && (
           <div style={{ background: "#fff", borderRadius: 16, padding: "20px 24px", marginBottom: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.06)", textAlign: "center" }}>
             <p style={{ margin: "0 0 12px", fontSize: 13, color: "#666" }}>¿Ya completaste la personalización y subiste tu diseño? Hacé clic para renderizar.</p>
             <button
