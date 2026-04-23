@@ -566,7 +566,7 @@ function InputItemsABM() {
       for (const id of selectedItems) {
         const item = items.find(i => i.id === id);
         if (!item) continue;
-        const newCost = Number(item.last_cost || item.default_cost) || 0;
+        const newCost = (item.last_cost != null && item.last_cost > 0) ? Number(item.last_cost) : Number(item.default_cost);
         await putJson("/input-items/" + id, { name: item.name, unit: item.unit, default_cost: newCost, requires_stock: item.requires_stock, stock_quantity: item.stock_quantity });
       }
       setSelectedItems([]);
