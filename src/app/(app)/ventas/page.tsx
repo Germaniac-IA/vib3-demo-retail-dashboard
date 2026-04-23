@@ -95,7 +95,7 @@ export default function VentasPage() {
     }).catch(console.error).finally(() => setLoading(false));
   }
 
-  useEffect(() => { load(); }, [refreshKey, period]);
+  useEffect(() => { load(); }, [refreshKey, period, customFrom, customTo]);
 
   function handleCreated() { setShowNew(false); setRefreshKey(k => k + 1); }
 
