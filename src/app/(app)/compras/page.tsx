@@ -790,7 +790,11 @@ function NPDetailModal({ orderId, onClose, onUpdated }: any) {
           <div style={{ border: "1px solid #eee", borderRadius: "8px", overflow: "hidden" }}>
             {order.items.map((item: any, idx: number) => (
               <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", borderBottom: idx < order.items.length - 1 ? "1px solid #f0f0f0" : "none", fontSize: "13px" }}>
-                <span>{item.quantity} × {item.product_name}</span>
+                <span>
+                  {item.quantity} × {item.product_name}
+                  {item.attribute_value_name ? <span style={{background:'#e8f0fe',color:'#1a56db',padding:'1px 6px',borderRadius:'4px',fontSize:'11px',fontWeight:700,marginLeft:'6px'}}>{item.attribute_value_name}</span> : null}
+                  {item.attribute_allocations && item.attribute_allocations.length > 0 ? <span style={{display:'flex',flexDirection:'column',gap:'2px',marginTop:'4px',marginLeft:'16px'}}>{item.attribute_allocations.map((a,i)=><span key={i} style={{fontSize:'12px',color:'#555'}}>{a.quantity}x <b>{a.attribute_value_name || a.attribute_value_id}</b></span>)}</span> : null}
+                </span>
                 <span style={{ fontWeight: 700 }}>${Number(item.subtotal).toLocaleString("es-AR")}</span>
               </div>
             ))}
