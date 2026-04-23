@@ -88,6 +88,9 @@ export default function DisenoPage() {
   const [showItems, setShowItems] = useState(false);
   const [savingItems, setSavingItems] = useState(false);
   const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
+  const [renderCountdown, setRenderCountdown] = useState(30);
+  const [renderModalOpen, setRenderModalOpen] = useState(false);
+  const [renderPolling, setRenderPolling] = useState(false);
   const [itemDraft, setItemDraft] = useState({ item_number: "", head: "", center: "", footer: "", talle: "" });  const [createError, setCreateError] = useState("");
 
   const loadRequests = useCallback(async () => {
@@ -179,19 +182,48 @@ export default function DisenoPage() {
   async function handleRender() {
     if (!selected || !selected.client_uploaded_image_url) return;
     setRendering(true);
+    setRenderCountdown(30);
+    setRenderModalOpen(true);
+    setRenderPolling(true);
     try {
       await postJson(`/design-requests/${selected.id}/render`, {
         image_url: selected.client_uploaded_image_url,
       });
-      const updated = await getJson<DesignRequest>(`/design-requests/${selected.id}`);
-      setSelected(updated);
-      loadRequests();
     } catch (e) {
       console.error(e);
+      setRenderModalOpen(false);
+      setRenderPolling(false);
       alert("Error al renderizar: " + (e as Error).message);
-    } finally {
       setRendering(false);
+      return;
     }
+    // Poll every 3s for up to 30s
+    const pollInterval = setInterval(async () => {
+      setRenderCountdown(prev => {
+        if (prev <= 3) {
+          clearInterval(pollInterval);
+          setRenderPolling(false);
+          setRenderModalOpen(false);
+          setRendering(false);
+          window.location.reload();
+          return 0;
+        }
+        return prev - 3;
+      });
+      try {
+        const updated = await getJson<DesignRequest>(`/design-requests/${selected.id}`);
+        setSelected(updated);
+        loadRequests();
+        if (updated.status !== "rendering") {
+          clearInterval(pollInterval);
+          setRenderModalOpen(false);
+          setRenderPolling(false);
+          setRendering(false);
+        }
+      } catch (e) {
+        console.error("Poll error:", e);
+      }
+    }, 3000);
   }
 
   async function handleApprove() {
@@ -510,6 +542,48 @@ export default function DisenoPage() {
           </>
         )}
       </div>
+
+      {/* Render Countdown Modal */}
+      {renderModalOpen && (
+        <div style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 200,
+          display: "flex", alignItems: "center", justifyContent: "center", padding: "20px"
+        }}>
+          <div style={{
+            background: "#fff", borderRadius: "20px", padding: "36px 40px", textAlign: "center",
+            maxWidth: "380px", width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.4)"
+          }}>
+            <div style={{ fontSize: "52px", marginBottom: "16px" }}>🎨</div>
+            <h2 style={{ margin: "0 0 8px", fontSize: "20px", fontWeight: 800, color: "#1a1a2e" }}>
+              Renderizando tu diseño
+            </h2>
+            <p style={{ margin: "0 0 20px", fontSize: "13px", color: "#888" }}>
+              Esto puede tardar entre 15 y 30 segundos.<br />
+              No cierres esta ventana.
+            </p>
+            <div style={{
+              fontSize: "48px", fontWeight: 900, color: "#9b59b6",
+              marginBottom: "16px", fontVariantNumeric: "tabular-nums"
+            }}>
+              {renderCountdown}s
+            </div>
+            <div style={{ background: "#f0f0f0", borderRadius: "8px", height: "8px", overflow: "hidden", marginBottom: "12px" }}>
+              <div style={{
+                height: "100%",
+                width: `${(renderCountdown / 30) * 100}%`,
+                background: "linear-gradient(90deg, #9b59b6, #8e44ad)",
+                borderRadius: "8px",
+                transition: "width 0.5s ease"
+              }} />
+            </div>
+            {renderPolling && (
+              <p style={{ margin: 0, fontSize: "12px", color: "#aaa" }}>
+                Verificando estado...
+              </p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
