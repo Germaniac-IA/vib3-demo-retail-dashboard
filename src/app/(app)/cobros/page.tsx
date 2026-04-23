@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { fetchJson, postJson, deleteJson } from "../../lib";
+import { exportCashWorkbook } from "../../utils/exportCashWorkbook";
 import { Card, PageTitle, Loading, Empty } from "../../components/shared/UI";
 
 type CashMovement = { id: number; type: string; reason: string; amount: number; account_name: string; client_name: string; order_number: string; notes: string; created_at: string; };
@@ -9,12 +10,14 @@ type PaymentMethod = { id: number; name: string; requires_arqueo: boolean };
 type Contact = { id: number; name: string; phone: string; };
 type UnpaidNV = { id: number; order_number: string; contact_name: string; phone: string; total: number; payment_paid: number; payment_pending: number; };
 type Stats = { total_in: number; total_out: number; move_count: number; nv_count: number; net: number; };
-type Period = "today" | "week" | "month";
+type Period = "today" | "week" | "month" | "custom";
 
 export default function CobrosPage() {
   const [movements, setMovements] = useState<CashMovement[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [period, setPeriod] = useState<Period>("today");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
   const [filterReason, setFilterReason] = useState<string>("all");
   const filtered = filterReason === "all" ? movements : movements.filter((m: any) => m.reason === filterReason);
   const filteredTotal = filtered.reduce((s: number, m: any) => s + Number(m.amount), 0);
@@ -42,7 +45,7 @@ export default function CobrosPage() {
     setLoading(true);
     Promise.all([
       fetchJson<CashMovement[]>("/cash-movements?type=in&period=" + period),
-      fetchJson<Stats>("/cash/stats?period=" + period),
+      fetchJson<Stats>("/cash/stats?period=" + period + (period === "custom" && customFrom && customTo ? "&from=" + customFrom + "&to=" + customTo : "")),
       fetchJson<PaymentMethod[]>("/payment-methods"),
       fetchJson<Contact[]>("/contacts"),
       fetchJson<any>("/cash-sessions/current").catch(() => null),
@@ -55,7 +58,18 @@ export default function CobrosPage() {
     }).catch(console.error).finally(() => setLoading(false));
   }
 
-  useEffect(() => { load(); }, [refreshKey, period]);
+  useEffect(() => { load(); }, [refreshKey, period, customFrom, customTo]);
+
+
+  async function handleExportExcel() {
+    await exportCashWorkbook({
+      source: "cobros",
+      currentRows: movements,
+      period,
+      customFrom,
+      customTo,
+    });
+  }
 
   function setMov(field: string, value: string) {
     setMovForm(prev => ({ ...prev, [field]: value }));
@@ -211,12 +225,22 @@ export default function CobrosPage() {
       )}
 
       <div style={{ display: "flex", gap: "4px", background: "#f0f0f0", padding: "3px", borderRadius: "8px", marginBottom: "12px", width: "fit-content" }}>
-        {(["today", "week", "month"] as Period[]).map(p => (
+        {(["today", "week", "month", "custom"] as Period[]).map(p => (
           <button key={p} onClick={() => setPeriod(p)} style={{ padding: "5px 12px", borderRadius: "6px", border: "none", background: period === p ? "#1a1a2e" : "transparent", color: period === p ? "#fff" : "#666", cursor: "pointer", fontSize: "12px", fontWeight: 700 }}>
-            {p === "today" ? "Hoy" : p === "week" ? "Semana" : "Mes"}
+            {p === "today" ? "Hoy" : p === "week" ? "Semana" : p === "custom" ? "Personalizado" : "Mes"}
           </button>
         ))}
       </div>
+
+      {period === "custom" && (
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center", marginBottom: "12px" }}>
+          <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} style={{ padding: "6px 10px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }} />
+          <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} style={{ padding: "6px 10px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }} />
+          {(customFrom || customTo) && (
+            <button onClick={() => { setCustomFrom(""); setCustomTo(""); setPeriod("today"); }} style={{ padding: "5px 10px", borderRadius: "6px", border: "1px solid #ddd", background: "#fff", color: "#666", fontSize: "12px", cursor: "pointer" }}>Limpiar</button>
+          )}
+        </div>
+      )}
 
       {/* Reason filter */}
       <div style={{ display: "flex", gap: "4px", background: "#f0f0f0", padding: "3px", borderRadius: "8px", marginBottom: "12px", width: "fit-content" }}>
