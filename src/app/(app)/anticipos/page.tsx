@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { fetchJson } from "../../lib";
 import { Card, Badge, PageTitle, Loading, Empty } from "../../components/shared/UI";
+import * as XLSX from "xlsx";
 
 type AdvanceRow = {
   id: number;
@@ -25,6 +26,8 @@ type Stats = {
   provider_count: number;
 };
 
+type Period = "today" | "week" | "month" | "custom";
+
 export default function AnticiposPage() {
   const [advances, setAdvances] = useState<AdvanceRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,16 +35,24 @@ export default function AnticiposPage() {
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState("");
   const [filterConsumed, setFilterConsumed] = useState("");
+  const [period, setPeriod] = useState<Period>("month");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
 
   function load() {
     setLoading(true);
-    fetchJson<AdvanceRow[]>("/advances")
+    const params = new URLSearchParams();
+    if (period === "custom" && customFrom) params.set("date_from", customFrom);
+    if (period === "custom" && customTo) params.set("date_to", customTo);
+    if (period !== "custom") params.set("period", period);
+    const qs = params.toString();
+    fetchJson<AdvanceRow[]>("/advances" + (qs ? "?" + qs : ""))
       .then(setAdvances)
       .catch(console.error)
       .finally(() => setLoading(false));
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [period, customFrom, customTo]);
 
   const filtered = advances.filter((a) => {
     if (search && !a.entity_name?.toLowerCase().includes(search.toLowerCase()) && !String(a.id).includes(search)) return false;
@@ -59,6 +70,30 @@ export default function AnticiposPage() {
     client_count: advances.filter(a => a.entity_type === "client").length,
     provider_count: advances.filter(a => a.entity_type === "provider").length,
   };
+
+  function handleExportExcel() {
+    const data = filtered.map(a => ({
+      "ID": a.id,
+      "Fecha": new Date(a.created_at).toLocaleDateString("es-AR"),
+      "Tipo": a.entity_type === "provider" ? "Proveedor" : "Cliente",
+      "Entidad": a.entity_name || "-",
+      "Total": Number(a.amount || 0),
+      "Usado": Number(a.used_amount || 0),
+      "Disponible": Number(a.remaining || 0),
+      "Notas": a.notes || "-",
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Anticipos");
+    XLSX.writeFile(wb, "Anticipos.xlsx");
+  }
+
+  const periodTabs = [
+    { label: "Hoy", value: "today" },
+    { label: "Semana", value: "week" },
+    { label: "Mes", value: "month" },
+    { label: "Personalizado", value: "custom" },
+  ];
 
   return (
     <div>
@@ -96,8 +131,61 @@ export default function AnticiposPage() {
         </div>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px", flexWrap: "wrap" }}>
-        <div style={{ marginLeft: "auto", display: "flex", gap: "8px", alignItems: "center" }}>
+      {/* Period filter */}
+      <div style={{ display: "flex", gap: "6px", marginBottom: "10px", flexWrap: "wrap", alignItems: "center" }}>
+        {periodTabs.map(tab => (
+          <button
+            key={tab.value}
+            onClick={() => setPeriod(tab.value as Period)}
+            style={{
+              padding: "6px 14px",
+              borderRadius: "20px",
+              border: "none",
+              cursor: "pointer",
+              fontSize: "12px",
+              fontWeight: 600,
+              background: period === tab.value ? "#1a1a2e" : "#e0e0e0",
+              color: period === tab.value ? "#fff" : "#333",
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+        {period === "custom" && (
+          <div style={{ display: "flex", gap: "6px", alignItems: "center", marginLeft: "4px" }}>
+            <input
+              type="date"
+              value={customFrom}
+              onChange={e => setCustomFrom(e.target.value)}
+              style={{ padding: "5px 8px", borderRadius: "8px", border: "1px solid #ccc", fontSize: "12px" }}
+            />
+            <span style={{ color: "#888", fontSize: "12px" }}>hasta</span>
+            <input
+              type="date"
+              value={customTo}
+              onChange={e => setCustomTo(e.target.value)}
+              style={{ padding: "5px 8px", borderRadius: "8px", border: "1px solid #ccc", fontSize: "12px" }}
+            />
+          </div>
+        )}
+        <div style={{ marginLeft: "auto", display: "flex", gap: "6px", alignItems: "center" }}>
+          <button
+            onClick={handleExportExcel}
+            disabled={filtered.length === 0}
+            style={{
+              padding: "7px 14px",
+              borderRadius: "8px",
+              border: "none",
+              cursor: filtered.length === 0 ? "not-allowed" : "pointer",
+              fontSize: "12px",
+              background: filtered.length === 0 ? "#cfcfcf" : "#27ae60",
+              color: "#fff",
+              fontWeight: 700,
+              opacity: filtered.length === 0 ? 0.7 : 1,
+            }}
+          >
+            ⬇ Excel
+          </button>
           <button onClick={() => setViewMode("cards")}
             style={{ padding: "6px 12px", borderRadius: "8px", border: "none", background: viewMode === "cards" ? "#1a1a2e" : "#e0e0e0", color: viewMode === "cards" ? "#fff" : "#333", cursor: "pointer", fontSize: "13px" }}>
             Cards
