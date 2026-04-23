@@ -439,9 +439,16 @@ export default function EntregasPage() {
               ) : detailDelivery.items && detailDelivery.items.length > 0 ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                   {detailDelivery.items.map((item: any, i: number) => (
-                    <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", background: "#f8f8f8", borderRadius: "6px", fontSize: "13px" }}>
-                      <span>{item.product_name}</span>
-                      <span style={{ fontWeight: 700 }}>x{item.quantity}</span>
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: "12px", padding: "8px 12px", background: "#f8f8f8", borderRadius: "6px", fontSize: "13px" }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div>{item.product_name}</div>
+                        {item.attribute_value_name && (
+                          <div style={{ fontSize: "11px", color: "#666", marginTop: "2px" }}>
+                            {item.attribute_type_name ? `${item.attribute_type_name}: ` : ""}{item.attribute_value_name}
+                          </div>
+                        )}
+                      </div>
+                      <span style={{ fontWeight: 700, whiteSpace: "nowrap" }}>x{item.quantity}</span>
                     </div>
                   ))}
                 </div>
