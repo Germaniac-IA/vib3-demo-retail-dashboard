@@ -558,6 +558,23 @@ function InputItemsABM() {
     finally { setCostSaving(false); }
   }
 
+  async function handleUpdateFromLastPurchase() {
+    if (selectedItems.length === 0) { alert("Seleccioná al menos un insumo"); return; }
+    if (!confirm(`Actualizar ${selectedItems.length} insumo(s) al costo de la última compra?`)) return;
+    setCostSaving(true);
+    try {
+      for (const id of selectedItems) {
+        const item = items.find(i => i.id === id);
+        if (!item) continue;
+        const newCost = Number(item.last_cost || item.default_cost) || 0;
+        await putJson("/input-items/" + id, { name: item.name, unit: item.unit, default_cost: newCost, requires_stock: item.requires_stock, stock_quantity: item.stock_quantity });
+      }
+      setSelectedItems([]);
+      load();
+    } catch { alert("Error al actualizar costos"); }
+    finally { setCostSaving(false); }
+  }
+
   function renderItem(i: InputItemType) {
     return (
       <div key={i.id} style={{ padding: "5px 0", borderBottom: "1px solid #f5", fontSize: "12px", display: "flex", alignItems: "center", gap: "6px" }}>
@@ -586,7 +603,12 @@ function InputItemsABM() {
           <span style={{ fontSize: "11px", color: "#aaa", marginRight: "8px" }}>{items.length}</span>
           {selectedItems.length > 0 && (
             <button onClick={() => setShowCostModal(true)} style={{ padding: "4px 10px", borderRadius: "6px", border: "none", background: "#f39c12", color: "#fff", cursor: "pointer", fontSize: "11px", fontWeight: 700, marginRight: "6px" }}>
-              📊 Actualizar Costos ({selectedItems.length})
+              📊 Costos ({selectedItems.length})
+            </button>
+          )}
+          {selectedItems.length > 0 && (
+            <button onClick={handleUpdateFromLastPurchase} style={{ padding: "4px 10px", borderRadius: "6px", border: "none", background: "#3498db", color: "#fff", cursor: "pointer", fontSize: "11px", fontWeight: 700, marginRight: "6px" }}>
+              📥 Ult. Compra
             </button>
           )}
           <IconButton variant="primary" title="Agregar" onClick={(e) => { e.stopPropagation(); openNew(); }}>+</IconButton>
