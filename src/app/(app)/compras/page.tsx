@@ -179,9 +179,9 @@ export default function ComprasPage() {
           onClose={() => setReceiveAllocationModal(null)}
           onSave={async (result) => {
             try {
-              await postJson(/purchase-orders//receive, {
+              await postJson("/purchase-orders/" + receiveAllocationModal.orderId + "/receive", {
                 allocations: receiveAllocationModal.items.map((item: any) => ({
-                  purchase_item_id: Number(item.purchase_item_id),
+                  purchase_item_id: Number(item.id),
                   allocations: result[item.key] || [],
                 })),
               });
@@ -640,6 +640,16 @@ function NPDetailModal({ orderId, onClose, onUpdated }: any) {
     }
   }
 
+  function handleAllocate() {
+    // Build allocation items with has_attributes flag
+    const allocItems = (order.items || []).map((item: any) => ({
+      ...item,
+      has_attributes: item.has_attributes || false,
+      quantity_ordered: item.quantity,
+    }));
+    setReceiveAllocationModal({ orderId, items: allocItems });
+  }
+
   if (loading) return (
     <div style={{ background: "#fff", borderRadius: "16px", padding: "40px", textAlign: "center", width: "100%", maxWidth: "600px" }}>
       <Loading />
@@ -676,8 +686,14 @@ function NPDetailModal({ orderId, onClose, onUpdated }: any) {
         {order.payment_status_name && <Badge color={order.payment_status_color}>{order.payment_status_name}</Badge>}
         <span style={{ padding: "6px 10px", borderRadius: "8px", background: "#f0f0f0", fontSize: "13px", color: "#666" }}>📍 Compra</span>
         {order.status_name !== "Recibido" && (
-          <button onClick={handleReceive} style={{ padding: "6px 14px", borderRadius: "8px", border: "none", background: "#27ae60", color: "#fff", cursor: "pointer", fontSize: "13px", fontWeight: 700 }}>
-            Marcar Recibida
+            <button onClick={() => {
+            if (confirm("¿Recibir directo (incrementa stock directo) o répartir por atributos?")) {
+              handleReceive();
+            } else {
+              handleAllocate();
+            }
+          }} style={{ padding: "6px 14px", borderRadius: "8px", border: "none", background: "#27ae60", color: "#fff", cursor: "pointer", fontSize: "13px", fontWeight: 700 }}>
+            Marcar Recibida ▾
           </button>
         )}
       </div>
