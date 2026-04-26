@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { fetchJson, postJson, putJson, deleteJson } from "../../lib";
 import { Card, IconButton, Input, Select, PageTitle, Loading } from "../../components/shared/UI";
 import StatsCards from "../../components/shared/StatsCards";
-import { ImportModal, ExportReportButton, UpdateCostModal } from "../../components/shared/ProductModals";
 
 type InputItem = { id: number; name: string; unit: string; default_cost: number };
 type ProductComponent = { id: number; input_item_id: number; input_item_name: string; input_unit: string; quantity: number; default_cost: number };
@@ -68,8 +67,6 @@ export default function ProductosPage() {
   const [inputQty, setInputQty] = useState("1");
   const [sortField, setSortField] = useState<"name" | "price" | "stock" | "sku" | "category" | "brand">("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-  const [showImport, setShowImport] = useState(false);
-  const [showUpdateCost, setShowUpdateCost] = useState(false);
 
   function load() {
     setLoading(true);
@@ -98,10 +95,6 @@ export default function ProductosPage() {
       setComponents(comps);
       setForm(f => ({ ...f, uses_inputs: comps.length > 0, _hasComponents: comps.length > 0 }));
     } catch { setComponents([]); setForm(f => ({ ...f, uses_inputs: false, _hasComponents: false })); }
-  }
-
-  function loadAllInputs() {
-    fetchJson<any[]>("/input-items").then(setAllInputs).catch(() => {});
   }
 
   function openNew() {
@@ -318,12 +311,7 @@ export default function ProductosPage() {
             Ver todos
           </label>
         </div>
-        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-          <IconButton variant="secondary" title="Importar productos" onClick={() => { setShowImport(true); }}>📥</IconButton>
-          <ExportReportButton products={products} />
-          <IconButton variant="secondary" title="Actualizar costos" onClick={() => { loadAllInputs(); setShowUpdateCost(true); }}>💰</IconButton>
-          <IconButton variant="primary" title="Nuevo producto" onClick={openNew}>+</IconButton>
-        </div>
+        <IconButton variant="primary" title="Nuevo producto" onClick={openNew}>+</IconButton>
       </div>
 
       {products.length === 0 ? (
@@ -344,7 +332,7 @@ export default function ProductosPage() {
                       <div style={{ fontSize: "18px", fontWeight: 700, color: p.is_active === false ? "#ccc" : "#6c63ff", marginTop: "6px" }}>
                         ${Number(p.price).toLocaleString("es-AR")}
                       </div>
-                      {p.computed_cost > 0 ? <div style={{ fontSize: "11px", color: "#888", marginTop: "2px" }}>Costo: ${Number(p.computed_cost).toLocaleString("es-AR")} (insumos)</div> : p.cost_price > 0 ? <div style={{ fontSize: "11px", color: "#888", marginTop: "2px" }}>Costo: ${Number(p.cost_price).toLocaleString("es-AR")}</div> : null}
+                      {p.cost_price > 0 && <div style={{ fontSize: "11px", color: "#888", marginTop: "2px" }}>Costo: ${Number(p.cost_price).toLocaleString("es-AR")}</div>}
                       <div style={{ display: "flex", gap: "4px", flexWrap: "wrap", marginTop: "8px" }}>
                         {p.brand_name && <span style={{ fontSize: "11px", background: "#eee", padding: "2px 6px", borderRadius: "8px" }}>{p.brand_name}</span>}
                         {p.requires_stock && (
@@ -761,22 +749,6 @@ export default function ProductosPage() {
         </div>
       )}
     </div>
-      {showImport && (
-        <ImportModal
-          onClose={() => setShowImport(false)}
-          onDone={() => { load(); setShowImport(false); }}
-        />
-      )}
-      {showUpdateCost && (
-        <UpdateCostModal
-          products={products}
-          allProducts={products}
-          inputItems={allInputs}
-          onClose={() => setShowUpdateCost(false)}
-          onDone={() => { load(); setShowUpdateCost(false); }}
-        />
-      )}
-
     </>
   );
 }
