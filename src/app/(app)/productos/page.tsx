@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { fetchJson, postJson, putJson, deleteJson } from "../../lib";
 import { Card, IconButton, Input, Select, PageTitle, Loading } from "../../components/shared/UI";
 import StatsCards from "../../components/shared/StatsCards";
-import { ImportModal, ExportReportButton, UpdateCostModal } from "../../components/shared/ProductModals";
+import { ImportModal, ExportReportButton, UpdateCostModal, UpdatePriceModal } from "../../components/shared/ProductModals";
 
 type InputItem = { id: number; name: string; unit: string; default_cost: number };
 type ProductComponent = { id: number; input_item_id: number; input_item_name: string; input_unit: string; quantity: number; default_cost: number };
@@ -70,6 +70,7 @@ export default function ProductosPage() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [showImport, setShowImport] = useState(false);
   const [showUpdateCost, setShowUpdateCost] = useState(false);
+  const [showUpdatePrice, setShowUpdatePrice] = useState(false);
 
   function load() {
     setLoading(true);
@@ -319,7 +320,8 @@ export default function ProductosPage() {
         <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
           <IconButton variant="secondary" title="Importar productos" onClick={() => { setShowImport(true); }}>📥</IconButton>
           <ExportReportButton products={products} />
-          <IconButton variant="secondary" title="Actualizar costos internos (no precio de venta)" onClick={() => { loadAllInputs(); setShowUpdateCost(true); }}>💰</IconButton>
+          <IconButton variant="secondary" title="Actualizar costos internos" onClick={() => { loadAllInputs(); setShowUpdateCost(true); }}>💰</IconButton>
+          <IconButton variant="secondary" title="Actualizar precios de venta" onClick={() => setShowUpdatePrice(true)}>💵</IconButton>
           <IconButton variant="primary" title="Nuevo producto" onClick={openNew}>+</IconButton>
         </div>
       </div>
@@ -772,6 +774,13 @@ export default function ProductosPage() {
           inputItems={allInputs}
           onClose={() => setShowUpdateCost(false)}
           onDone={() => { load(); setShowUpdateCost(false); }}
+        />
+      )}
+      {showUpdatePrice && (
+        <UpdatePriceModal
+          products={products}
+          onClose={() => setShowUpdatePrice(false)}
+          onDone={() => { load(); setShowUpdatePrice(false); }}
         />
       )}
 

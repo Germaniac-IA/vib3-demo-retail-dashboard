@@ -410,3 +410,99 @@ export function UpdateCostModal({
   );
 }
 
+
+
+export function UpdatePriceModal({ products, onClose, onDone }: { products: any[]; onClose: () => void; onDone: () => void }) {
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [selectAll, setSelectAll] = useState(false);
+  const [adjustType, setAdjustType] = useState<"percent" | "amount">("percent");
+  const [adjustValue, setAdjustValue] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<number | null>(null);
+  const isSingle = selectedIds.length === 1;
+  const isMulti = selectedIds.length > 1;
+
+  function toggleAll() {
+    if (selectAll) setSelectedIds([]);
+    else setSelectedIds(products.map((p: any) => p.id));
+    setSelectAll(!selectAll);
+  }
+
+  function toggleItem(id: number) {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    setSelectAll(false);
+  }
+
+  function getLabel() {
+    if (!selectedIds.length) return <span>Valor:</span>;
+    if (isSingle) return <span>Nuevo precio de venta ($):</span>;
+    return <span style={{fontSize:13}}>Aumentar cada precio en:</span>;
+  }
+
+  function getHint() {
+    if (!selectedIds.length) return "Selecciona productos. Esto cambia precio de venta.";
+    if (isSingle) return "Ej: 20000";
+    if (adjustType === "percent") return "Ej: 20 (aumenta 20%)";
+    return "Ej: 500 (aumenta $500 c/u)";
+  }
+
+  async function doUpdate() {
+    if (!selectedIds.length || !adjustValue) return;
+    setLoading(true);
+    try {
+      let body: any;
+      if (isSingle) body = { productIds: selectedIds, newPrice: parseFloat(adjustValue) };
+      else if (adjustType === "percent") body = { productIds: selectedIds, increasePercent: parseFloat(adjustValue) };
+      else body = { productIds: selectedIds, increaseAmount: parseFloat(adjustValue) };
+      const res = await postJson<any>("/products/update-prices", body);
+      setResult(res.updated);
+    } catch (e: any) { alert("Error: " + e.message); }
+    setLoading(false);
+  }
+
+  function canSubmit() { return selectedIds.length > 0 && adjustValue !== ""; }
+
+  return (
+    <ModalBackdrop onClose={onClose}>
+      <h3 style={{ margin: "0 0 16px", fontSize: 18 }}>💵 Actualizar precios de venta</h3>
+      {!result ? (<>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", fontSize: 13 }}>
+            <input type="checkbox" checked={selectAll} onChange={toggleAll} />
+            Todos los productos
+          </label>
+          <span style={{ fontSize: 12, color: "#888" }}>{selectedIds.length} seleccionados</span>
+        </div>
+        <div style={{ maxHeight: 250, overflow: "auto", border: "1px solid #eee", borderRadius: 8, marginBottom: 12 }}>
+          {products.map((item: any) => (
+            <label key={item.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", cursor: "pointer", fontSize: 13, borderBottom: "1px solid #f5f5f5", background: selectedIds.includes(item.id) ? "#f0eeff" : "transparent" }}>
+              <input type="checkbox" checked={selectedIds.includes(item.id)} onChange={() => toggleItem(item.id)} />
+              <span style={{ flex: 1 }}>{item.name}</span>
+              <span style={{ color: "#888", fontSize: 11 }}>${Number(item.price || 0).toLocaleString("es-AR")}</span>
+            </label>
+          ))}
+        </div>
+        {isMulti && (
+          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+            <button onClick={() => setAdjustType("percent")} style={{ padding: "6px 16px", borderRadius: 8, border: "none", cursor: "pointer", background: adjustType === "percent" ? "#6c63ff" : "#f0f0f0", color: adjustType === "percent" ? "#fff" : "#333", fontSize: 13 }}>Aumentar %</button>
+            <button onClick={() => setAdjustType("amount")} style={{ padding: "6px 16px", borderRadius: 8, border: "none", cursor: "pointer", background: adjustType === "amount" ? "#6c63ff" : "#f0f0f0", color: adjustType === "amount" ? "#fff" : "#333", fontSize: 13 }}>Aumentar $</button>
+          </div>
+        )}
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16 }}>
+          <label style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }}>{getLabel()}</label>
+          <input type="number" value={adjustValue} onChange={e => setAdjustValue(e.target.value)} style={{ flex: 1, padding: "8px 12px", border: "1px solid #ddd", borderRadius: 8, fontSize: 14 }} placeholder={getHint()} />
+          {isMulti && adjustType === "percent" && <span style={{ fontSize: 14, color: "#888" }}>%</span>}
+        </div>
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <button onClick={onClose} style={{ padding: "8px 20px", background: "#f0f0f0", border: "none", borderRadius: 8, cursor: "pointer" }}>Cancelar</button>
+          <button onClick={doUpdate} disabled={!canSubmit() || loading} style={{ padding: "8px 20px", background: canSubmit() ? "#6c63ff" : "#ccc", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>{loading ? "Actualizando..." : "Actualizar " + selectedIds.length + " productos"}</button>
+        </div>
+      </>) : (
+        <div>
+          <p style={{ fontSize: 16, color: "#2ecc71", fontWeight: 600 }}>✅ {result} productos actualizados</p>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}><button onClick={() => { onDone(); onClose(); }} style={{ padding: "8px 20px", background: "#6c63ff", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}>Listo</button></div>
+        </div>
+      )}
+    </ModalBackdrop>
+  );
+}
