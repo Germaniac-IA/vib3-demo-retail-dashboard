@@ -27,6 +27,7 @@ const NAV_STRUCTURE: NavSection[] = [
     title: "GESTIÓN",
     items: [
       { label: "Parámetros", icon: "⚙️", href: "/parametros" },
+      { label: "Estadísticas", icon: "📊", href: "/estadisticas" },
       { label: "Productos", icon: "📦", href: "/productos" },
       { label: "Leads", icon: "📍", href: "/leads" },
       { label: "Contactos", icon: "👥", href: "/contactos" },
