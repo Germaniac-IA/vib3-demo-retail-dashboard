@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { fetchJson, postJson } from "../lib";
 import NewContactModal from "./NewContactModal";
 import AttributeAllocationModal from "./AttributeAllocationModal";
-import type { Contact, Product, SaleChannel, OrderStatus, PaymentStatus, User } from "../types";
+import type { Contact, Product } from "../types";
 
 type SaleChannel = { id: number; name: string; sort_order: number };
 type OrderStatus = { id: number; name: string; color: string; sort_order: number };

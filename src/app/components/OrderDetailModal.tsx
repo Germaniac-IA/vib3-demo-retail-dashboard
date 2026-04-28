@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { fetchJson, postJson, putJson, deleteJson, money } from "../lib";
-import type { OrderDetail, OrderStatus, PaymentStatus, SaleChannel, OrderPayment } from "../types";
+import { Loading } from "./shared/UI";
+import type { OrderDetail, OrderPayment } from "../types";
 
 type SaleChannel = { id: number; name: string; sort_order: number };
 type OrderStatus = { id: number; name: string; color: string; sort_order: number };

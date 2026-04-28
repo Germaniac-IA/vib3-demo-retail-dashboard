@@ -2,6 +2,14 @@ export type Product = {
   id: number;
   name: string;
   sku?: string;
+  sku_externo?: string;
+  stock_quantity?: number;
+  min_stock?: number;
+  cost_price?: number;
+  image_url?: string;
+  commercial_description?: string;
+  genera_diseno?: boolean;
+  diseno_template_url?: string;
   category_id?: number;
   brand_id?: number;
   category_name: string;
@@ -19,6 +27,7 @@ export type Product = {
 export type Category = {
   id: number;
   name: string;
+  sku_prefix?: string;
 };
 
 export type Client = {
@@ -155,19 +164,37 @@ export type User = {
   client_id: number;
   username: string;
   name: string;
-  rol: "admin" | "manager" | "operator";
+  email?: string;
+  phone?: string;
+  telegram_id?: string;
+  is_active?: boolean;
+  rol: "admin" | "manager" | "operator" | string;
+};
+
+export type PaymentMethod = {
+  id: number;
+  name: string;
+  is_cash?: boolean;
+  is_active?: boolean;
 };
 
 export type Contact = {
   id: number;
   name: string;
-  phone: string;
-  email: string;
-  whatsapp: string;
-  instagram: string;
-  address: string;
-  city: string;
-  notes: string;
+  phone?: string;
+  email?: string;
+  whatsapp?: string;
+  instagram?: string;
+  tiktok?: string;
+  address?: string;
+  city?: string;
+  location?: string;
+  notes?: string;
+  condicion_iva?: string;
+  cuit?: string;
+  condicion_iibb?: string;
+  calificacion?: number;
+  entity_id?: number;
 };
 
 export type Lead = {
@@ -207,6 +234,8 @@ export type Complaint = {
   description: string;
   status: "open" | "investigating" | "resolved";
   created_at: string;
+  order_number?: string;
+  client_phone?: string;
 };
 
 export type DashboardSummary = {

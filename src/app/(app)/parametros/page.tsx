@@ -11,6 +11,8 @@ type InputItem = { id: number; name: string; unit: string; default_cost: number;
 type SaleChannel = { id: number; name: string; is_active: boolean; sort_order: number; has_delivery: boolean };
 type OrderStatus = { id: number; name: string; color: string; sort_order: number; is_active: boolean };
 type PaymentStatus = { id: number; name: string; color: string; sort_order: number; is_active: boolean };
+type Entity = { id: number; name: string; notes?: string; is_active?: boolean };
+
 type AttributeType = { id: number; name: string; sort_order: number; is_active: boolean };
 type AttributeValue = { id: number; attribute_type_id: number; value: string; sort_order: number; type_name?: string };
 
@@ -289,7 +291,7 @@ function SaleChannelsABM() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<SaleChannel | null>(null);
-  const [form, setForm] = useState({ name: "", sort_order: 0 });
+  const [form, setForm] = useState<{ name: string; sort_order: number; has_delivery?: boolean }>({ name: "", sort_order: 0, has_delivery: false });
   const [saving, setSaving] = useState(false);
 
   function load() {

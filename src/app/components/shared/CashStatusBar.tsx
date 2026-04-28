@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 const API = process.env.NEXT_PUBLIC_API_URL || "/baver/api";
 
 type Session = {
-  id: number; user_name: string; status: string;
+  id: number; user_name: string; status: string; user_id?: number; my_user_id?: number;
   total_in: number; total_out: number; net: number; opened_at: string;
 } | null;
 
@@ -164,9 +164,13 @@ async function kickJoinedUsers(sessionId: number) {
 // StatusBar - just shows stats when open
 export default function CashStatusBar() {
   const [session, setSession] = useState<Session>(null);
+  function statusAuthHeaders() {
+    const token = typeof window === "undefined" ? null : localStorage.getItem("token");
+    return token ? { "Authorization": "Bearer " + token } : {};
+  }
 
   useEffect(() => {
-    fetch(`${API}/cash-sessions/current`, { headers: authHeaders() })
+    fetch(`${API}/cash-sessions/current`, { headers: statusAuthHeaders() })
       .then(r => { if (!r.ok) return null; return r.json(); })
       .then(d => setSession(d && d.id ? d : null))
       .catch(() => setSession(null));

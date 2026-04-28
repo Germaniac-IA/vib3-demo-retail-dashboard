@@ -154,7 +154,7 @@ export default function NegocioPage() {
 
   function openNewUser() {
     setEditingUser(null);
-    setFormUser({ username: "", password: "", name: "", email: "", phone: "", rol: "operator" });
+    setFormUser({ username: "", password: "", name: "", email: "", phone: "", telegram_id: "", rol: "operator" });
     setShowUserForm(true);
   }
 

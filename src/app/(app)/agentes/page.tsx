@@ -58,7 +58,7 @@ export default function AgentesPage() {
         .then((rows) => {
           const normalized = rows.map((r: AgentInstruction) => ({
             ...r,
-            type: r.type === "transient" ? "transient" : "permanent",
+            type: (r.type === "transient" ? "transient" : "permanent") as "permanent" | "transient",
           }));
           setInstructions(normalized);
         })

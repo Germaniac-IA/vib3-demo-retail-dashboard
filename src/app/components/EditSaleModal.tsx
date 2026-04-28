@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { fetchJson, postJson, putJson, deleteJson } from "../lib";
-import type { OrderDetail, Product, SaleChannel, OrderStatus, PaymentStatus, User, PaymentMethod, OrderPayment } from "../types";
+import type { OrderDetail, Product, OrderPayment } from "../types";
 
 type SaleChannel = { id: number; name: string; sort_order: number };
 type OrderStatus = { id: number; name: string; color: string; sort_order: number };

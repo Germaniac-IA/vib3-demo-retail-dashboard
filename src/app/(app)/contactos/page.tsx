@@ -69,7 +69,7 @@ export default function ContactosPage() {
     Promise.all([
       fetchJson<Contact[]>("/contacts"),
       fetchJson<CondicionIva[]>("/condiciones-iva"),
-      fetchJson<{id: number; name: string}>("/entities"),
+      fetchJson<{id: number; name: string}[]>("/entities"),
     ]).then(([c, iva, ents]) => {
       setContacts(c);
       setCondicionesIva(iva);
@@ -94,6 +94,7 @@ export default function ContactosPage() {
       name: c.name || "", phone: c.phone || "", email: c.email || "", address: c.address || "", location: c.location || "",
       notes: c.notes || "", whatsapp: c.whatsapp || "", instagram: c.instagram || "", tiktok: c.tiktok || "",
       condicion_iva: c.condicion_iva || "", cuit: c.cuit || "", condicion_iibb: c.condicion_iibb || "", calificacion: c.calificacion || 5,
+      entity_id: c.entity_id || 0,
     });
     setShowForm(true);
   }

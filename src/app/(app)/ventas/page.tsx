@@ -29,6 +29,7 @@ type OrderRow = {
   payment_pending: number;
   items: Array<{ quantity: number }>;
   created_at: string;
+  sale_channel_has_delivery?: boolean;
 };
 
 type Stats = {

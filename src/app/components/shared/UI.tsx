@@ -3,9 +3,10 @@
 import React from "react";
 
 // ─── Card ─────────────────────────────────────────────────────────
-export function Card({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+export function Card({ children, style, onClick }: { children: React.ReactNode; style?: React.CSSProperties; onClick?: () => void }) {
   return (
     <div
+      onClick={onClick}
       style={{
         background: "#fff",
         borderRadius: "12px",
@@ -20,7 +21,7 @@ export function Card({ children, style }: { children: React.ReactNode; style?: R
 }
 
 // ─── Card Header ────────────────────────────────────────────────
-export function CardHeader({ title, action }: { title: string; action?: React.ReactNode }) {
+export function CardHeader({ title, action, children }: { title?: React.ReactNode; action?: React.ReactNode; children?: React.ReactNode }) {
   return (
     <div
       style={{
@@ -30,7 +31,7 @@ export function CardHeader({ title, action }: { title: string; action?: React.Re
         marginBottom: "16px",
       }}
     >
-      <h2 style={{ fontSize: "16px", fontWeight: 700, margin: 0, color: "#333" }}>{title}</h2>
+      <h2 style={{ fontSize: "16px", fontWeight: 700, margin: 0, color: "#333" }}>{title ?? children}</h2>
       {action}
     </div>
   );
@@ -48,7 +49,7 @@ export function IconButton({
   style,
 }: {
   children: React.ReactNode;
-  onClick?: () => void;
+  onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
   variant?: IconButtonVariant;
   title?: string;
   disabled?: boolean;
@@ -143,6 +144,7 @@ export function Input({
   type?: string;
   placeholder?: string;
   style?: React.CSSProperties;
+  disabled?: boolean;
 }) {
   return (
     <div style={{ marginBottom: "12px" }}>
@@ -241,7 +243,7 @@ export function Badge({ children, color = "#6c63ff" }: { children: React.ReactNo
 }
 
 // ─── Page Title ─────────────────────────────────────────────────
-export function PageTitle({ title }: { title: string }) {
+export function PageTitle({ title, children }: { title?: React.ReactNode; children?: React.ReactNode }) {
   return (
     <h1
       style={{
@@ -251,7 +253,7 @@ export function PageTitle({ title }: { title: string }) {
         color: "#1a1a2e",
       }}
     >
-      {title}
+      {title ?? children}
     </h1>
   );
 }

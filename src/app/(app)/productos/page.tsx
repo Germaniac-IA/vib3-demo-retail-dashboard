@@ -8,7 +8,7 @@ import { ImportModal, ExportReportButton, UpdateCostModal } from "../../componen
 
 type InputItem = { id: number; name: string; unit: string; default_cost: number };
 type ProductComponent = { id: number; input_item_id: number; input_item_name: string; input_unit: string; quantity: number; default_cost: number };
-type Category = { id: number; name: string; auto_generate_sku: boolean; sku_counter: number };
+type Category = { id: number; name: string; auto_generate_sku: boolean; sku_counter: number; sku_prefix?: string };
 type Product = {
   id: number; name: string; sku: string; sku_externo: string; description: string;
   commercial_description: string;
@@ -44,7 +44,7 @@ export default function ProductosPage() {
   const [productAttributes, setProductAttributes] = useState<any[]>([]);
   const [allAttributeValues, setAllAttributeValues] = useState<any[]>([]);
   const [newAttrValue, setNewAttrValue] = useState("");
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<any>({
     name: "", sku: "", sku_externo: "", description: "", commercial_description: "",
     price: "", unit: "unidad", category_id: "", brand_id: "",
     stock_quantity: "", min_stock: "", requires_stock: false,
@@ -380,7 +380,7 @@ export default function ProductosPage() {
         ))
       ) : (
         <div style={{ border: "1px solid #eee", borderRadius: "12px", overflow: "hidden" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 100px 100px 90px", gap: "0", background: "#f8f8f8", padding: "8px 12px", className: "prod-table-header", fontSize: "11px", fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "1px", borderBottom: "1px solid #eee" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 100px 100px 90px", gap: "0", background: "#f8f8f8", padding: "8px 12px", fontSize: "11px", fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "1px", borderBottom: "1px solid #eee" }}>
             {[
               { key: "name" as const, label: "Producto" },
               { key: "sku" as const, label: "SKU" },
@@ -399,7 +399,7 @@ export default function ProductosPage() {
             <div>Acciones</div>
           </div>
           {sortedList.map(p => (
-            <div key={p.id} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 100px 100px 90px", gap: "0", padding: "8px 12px", fontSize: "13px", className: "prod-table-row", alignItems: "center", borderBottom: "1px solid #f5f5f5", background: p.is_active === false ? "#fafafa" : "#fff", opacity: p.is_active === false ? 0.55 : 1 }}>
+            <div key={p.id} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 100px 100px 90px", gap: "0", padding: "8px 12px", fontSize: "13px", alignItems: "center", borderBottom: "1px solid #f5f5f5", background: p.is_active === false ? "#fafafa" : "#fff", opacity: p.is_active === false ? 0.55 : 1 }}>
               <div style={{ fontWeight: 700, color: p.is_active === false ? "#aaa" : undefined, textDecoration: p.is_active === false ? "line-through" : undefined, cursor: "pointer" }} onClick={() => openEdit(p)}>{p.name}</div>
               <div style={{ fontSize: "12px", color: "#aaa" }}>{p.sku || "—"}</div>
               <div style={{ fontSize: "12px", color: "#888" }}>{p.category_name || "Sin"}</div>

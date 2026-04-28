@@ -6,7 +6,7 @@ import * as XLSX from "xlsx";
 import { Card, Badge, PageTitle, Loading, Empty } from "../../components/shared/UI";
 import AttributeAllocationModal from "../../components/AttributeAllocationModal";
 
-type PO = { id: number; order_number: string; provider_name: string; subtotal: number; discount_value: number; delivery_fee: number; total: number; status_name: string; status_color: string; payment_status_name: string; payment_status_color: string; notes: string; created_at: string; };
+type PO = { id: number; order_number: string; provider_name: string; subtotal: number; discount_value: number; delivery_fee: number; total: number; payment_paid?: number; payment_pending?: number; status_name: string; status_color: string; payment_status_name: string; payment_status_color: string; notes: string; created_at: string; items?: any[]; };
 type PS = { id: number; name: string; color: string; };
 type Pst = { id: number; name: string; color: string; };
 type Product = { id: number; name: string; price: number; stock_quantity: number; };
