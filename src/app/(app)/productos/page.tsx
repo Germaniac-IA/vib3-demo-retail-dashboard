@@ -168,11 +168,9 @@ export default function ProductosPage() {
   }
 
   async function removeComponent(compId: number) {
-    console.log("DEBUG removeComponent:", { compId, editingId: editing?.id });
     if (editing) {
       try {
         const url = `/products/${editing.id}/components/${compId}`;
-        console.log("DEBUG DELETE url:", url);
         await deleteJson(url);
         loadComponents(editing.id);
       } catch (e) { console.error(e); }
@@ -297,7 +295,7 @@ export default function ProductosPage() {
       `}</style>
 
     <div style={{ width: "100%" }}>
-      <PageTitle>📦 PRODUCTOS DEBUG LU TESTEO</PageTitle>
+      <PageTitle>📦 Productos</PageTitle>
       <div style={{ background: "linear-gradient(135deg, #6c63ff15, #1a1a2e08)", border: "1px solid #6c63ff30", borderRadius: "12px", padding: "14px 18px", marginBottom: "20px", fontSize: "12px", color: "#666", lineHeight: "1.5" }}>
         <strong style={{ color: "#6c63ff" }}>📦 Catalogo de productos</strong><br />
         Carga tus productos, asignales categoria y marca, defini precios y niveles premium.
