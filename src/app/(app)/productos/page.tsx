@@ -319,7 +319,7 @@ export default function ProductosPage() {
         <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
           <IconButton variant="secondary" title="Importar productos" onClick={() => { setShowImport(true); }}>📥</IconButton>
           <ExportReportButton products={products} />
-          <IconButton variant="secondary" title="Actualizar costos" onClick={() => { loadAllInputs(); setShowUpdateCost(true); }}>💰</IconButton>
+          <IconButton variant="secondary" title="Actualizar costos internos (no precio de venta)" onClick={() => { loadAllInputs(); setShowUpdateCost(true); }}>💰</IconButton>
           <IconButton variant="primary" title="Nuevo producto" onClick={openNew}>+</IconButton>
         </div>
       </div>

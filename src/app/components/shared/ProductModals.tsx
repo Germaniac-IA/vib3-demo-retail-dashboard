@@ -263,12 +263,12 @@ export function UpdateCostModal({
 
   function getLabel() {
     if (!selectedIds.length) return <span>Valor:</span>;
-    if (isInput || isSingle) return <span>Nuevo valor ($):</span>;
+    if (isInput || isSingle) return <span>Nuevo costo interno ($):</span>;
     return <span style={{fontSize:13}}>Aumentar cada precio en:</span>;
   }
 
   function getHint() {
-    if (!selectedIds.length) return "Selecciona items";
+    if (!selectedIds.length) return "Selecciona items. Esto cambia costos internos, no precio de venta.";
     if (isInput || isSingle) return "Ej: 15000";
     if (adjustType === "percent") return "Ej: 20 (aumenta 20%)";
     return "Ej: 500 (aumenta $500 c/u)";
@@ -310,7 +310,7 @@ export function UpdateCostModal({
 
   return (
     <ModalBackdrop onClose={onClose}>
-      <h3 style={{ margin: "0 0 16px", fontSize: 18 }}>{"\uD83D\uDCB0"} Actualizar Costos</h3>
+      <h3 style={{ margin: "0 0 16px", fontSize: 18 }}>{"\uD83D\uDCB0"} Actualizar costos internos</h3>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
         <button onClick={() => { setMode("product"); setSelectedIds([]); setSelectAll(false); }}
