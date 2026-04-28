@@ -272,7 +272,7 @@ export default function DisenoPage() {
 
   async function handleCopyLink() {
     if (!selected?.token) return;
-    const link = `http://149.50.148.131:4101/d/${selected.token}`;
+    const link = `/vib3/d/${selected.token}`;
     try {
       await navigator.clipboard.writeText(link);
     } catch {

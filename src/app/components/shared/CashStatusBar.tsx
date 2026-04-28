@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+const API = process.env.NEXT_PUBLIC_API_URL || "/vib3/api";
+
 type Session = {
   id: number; user_name: string; status: string;
   total_in: number; total_out: number; net: number; opened_at: string;
@@ -32,7 +34,7 @@ function authHeaders() {
 }
 
 async function kickJoinedUsers(sessionId: number) {
-  const r = await fetch(`http://149.50.148.131:4100/api/cash-sessions/${sessionId}/kick-joined`, {
+  const r = await fetch(`${API}/cash-sessions/${sessionId}/kick-joined`, {
     method: 'POST',
     headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
   });
@@ -42,7 +44,7 @@ async function kickJoinedUsers(sessionId: number) {
 }
 
   function load() {
-    fetch(`http://149.50.148.131:4100/api/cash-sessions/current`, { headers: authHeaders() })
+    fetch(`${API}/cash-sessions/current`, { headers: authHeaders() })
       .then(r => { if (!r.ok) return null; return r.json(); })
       .then(d => setSession(d && d.id ? d : null))
       .catch(() => setSession(null));
@@ -51,7 +53,7 @@ async function kickJoinedUsers(sessionId: number) {
 
   async function handleLeave() {
     try {
-      await fetch(`http://149.50.148.131:4100/api/cash-sessions/leave`, {
+      await fetch(`${API}/cash-sessions/leave`, {
         method: 'POST',
         headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
       });
@@ -67,7 +69,7 @@ async function kickJoinedUsers(sessionId: number) {
     setOpening(true);
     try {
       // Check for other open sessions
-      const r = await fetch(`http://149.50.148.131:4100/api/cash-sessions/open`, { headers: authHeaders() });
+      const r = await fetch(`${API}/cash-sessions/open`, { headers: authHeaders() });
       const others = await r.json();
       if (others.length > 0) {
         setOpenSessions(others);
@@ -75,7 +77,7 @@ async function kickJoinedUsers(sessionId: number) {
         setOpening(false);
       } else {
         // Open own session
-        const r2 = await fetch(`http://149.50.148.131:4100/api/cash-sessions`, {
+        const r2 = await fetch(`${API}/cash-sessions`, {
           method: 'POST',
           headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
           body: JSON.stringify({ initial_amount: 0 }),
@@ -95,7 +97,7 @@ async function kickJoinedUsers(sessionId: number) {
   }
 
   async function handleJoin(id: number) {
-    await fetch(`http://149.50.148.131:4100/api/cash-sessions/${id}/join`, { method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()) });
+    await fetch(`${API}/cash-sessions/${id}/join`, { method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()) });
     setShowOpen(false);
     load();
   }
@@ -103,7 +105,7 @@ async function kickJoinedUsers(sessionId: number) {
   async function handleOpenOwn() {
     setOpening(true);
     try {
-      const r = await fetch(`http://149.50.148.131:4100/api/cash-sessions`, {
+      const r = await fetch(`${API}/cash-sessions`, {
         method: 'POST',
         headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
         body: JSON.stringify({ initial_amount: 0 }),
@@ -123,7 +125,7 @@ async function kickJoinedUsers(sessionId: number) {
     if (!session) return;
     setClosing(true);
     try {
-      const r = await fetch(`http://149.50.148.131:4100/api/cash-sessions/${session.id}/close`, {
+      const r = await fetch(`${API}/cash-sessions/${session.id}/close`, {
         method: 'POST',
         headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
         body: JSON.stringify({
@@ -164,7 +166,7 @@ export default function CashStatusBar() {
   const [session, setSession] = useState<Session>(null);
 
   useEffect(() => {
-    fetch(`http://149.50.148.131:4100/api/cash-sessions/current`, { headers: authHeaders() })
+    fetch(`${API}/cash-sessions/current`, { headers: authHeaders() })
       .then(r => { if (!r.ok) return null; return r.json(); })
       .then(d => setSession(d && d.id ? d : null))
       .catch(() => setSession(null));

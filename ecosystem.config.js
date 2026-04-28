@@ -8,7 +8,7 @@ module.exports = {
     watch: false,
     env: {
       NODE_ENV: 'production',
-      NEXT_PUBLIC_API_URL: 'http://149.50.148.131:4100/api'
+      NEXT_PUBLIC_API_URL: '/vib3/api'
     }
   }]
 };

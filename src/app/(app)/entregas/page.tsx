@@ -1,5 +1,7 @@
 "use client";
 
+const API = process.env.NEXT_PUBLIC_API_URL || "/vib3/api";
+
 import { useEffect, useState } from "react";
 import { fetchJson } from "../../lib";
 import * as XLSX from "xlsx";
@@ -63,7 +65,7 @@ export default function EntregasPage() {
   function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setCreating(true);
-    fetch("http://149.50.148.131:4100/api/deliveries", {
+    fetch("${API}/deliveries", {
       method: "POST",
       headers: { "Authorization": "Bearer " + (localStorage.getItem("token")||""), "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -85,21 +87,21 @@ export default function EntregasPage() {
 
   function handleConfirm(id: number) {
     if (!confirm("¿Confirmar entrega?")) return;
-    fetch("http://149.50.148.131:4100/api/deliveries/" + id + "/confirm", { method: "POST", headers: { "Authorization": "Bearer " + (localStorage.getItem("token")||""), "Content-Type": "application/json" } })
+    fetch("${API}/deliveries/" + id + "/confirm", { method: "POST", headers: { "Authorization": "Bearer " + (localStorage.getItem("token")||""), "Content-Type": "application/json" } })
       .then(() => load())
       .catch(() => alert("Error al confirmar"));
   }
 
   function handleCancel(id: number) {
     if (!confirm("¿Cancelar entrega? Esto revertirá el stock de los productos.")) return;
-    fetch(`http://149.50.148.131:4100/api/deliveries/${id}/cancel`, { method: "POST" })
+    fetch(`${API}/deliveries/${id}/cancel`, { method: "POST", headers: { "Authorization": "Bearer " + (localStorage.getItem("token")||""), "Content-Type": "application/json" } })
       .then(() => load())
       .catch(e => alert("Error al cancelar: " + e));
   }
 
   function openStatusEdit(d: Delivery) { setShowStatusEdit(d.id); setEditStatus(String(d.order_status_id)); }
   function saveStatusEdit(id: number) {
-    fetch(`http://149.50.148.131:4100/api/deliveries/${id}`, {
+    fetch(`${API}/deliveries/${id}`, {
       method: "PUT",
       headers: { "Authorization": "Bearer " + (localStorage.getItem("token")||""), "Content-Type": "application/json" },
       body: JSON.stringify({ order_status_id: Number(editStatus) }),
@@ -108,7 +110,7 @@ export default function EntregasPage() {
 
   function openAddressEdit(d: Delivery) { setShowAddressEdit(d.id); setEditAddress({ address: d.address || "", notes: d.notes || "" }); }
   function saveAddressEdit(id: number) {
-    fetch(`http://149.50.148.131:4100/api/deliveries/${id}`, {
+    fetch(`${API}/deliveries/${id}`, {
       method: "PUT",
       headers: { "Authorization": "Bearer " + (localStorage.getItem("token")||""), "Content-Type": "application/json" },
       body: JSON.stringify({ address: editAddress.address, notes: editAddress.notes }),
@@ -116,7 +118,7 @@ export default function EntregasPage() {
   }
 
   function handleStatusChange(id: number, newStatus: string) {
-    fetch(`http://149.50.148.131:4100/api/deliveries/${id}`, {
+    fetch(`${API}/deliveries/${id}`, {
       method: "PUT",
       headers: { "Authorization": "Bearer " + (localStorage.getItem("token")||""), "Content-Type": "application/json" },
       body: JSON.stringify({ order_status_id: Number(newStatus) }),

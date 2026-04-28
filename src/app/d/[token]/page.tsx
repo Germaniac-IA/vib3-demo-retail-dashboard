@@ -471,5 +471,3 @@ export default function PublicDesignPage({ params }: { params: Promise<{ token: 
     </div>
   );
 }
-import StatisticsSection from "../../components/StatisticsSection"; // Analytics component
-import StatisticsDashBoard from "../../components/StatisticsDashBoard"; // Dashboard Component
