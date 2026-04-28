@@ -222,7 +222,7 @@ export default function ProductosPage() {
       }
       // Upload image if pending file (backend saves image to disk and updates DB with URL)
       if ((form as any)._pendingImage && savedId) {
-        const api = process.env.NEXT_PUBLIC_API_URL || '/vib3/api';
+        const api = process.env.NEXT_PUBLIC_API_URL || '/baver/api';
         const resImg = await fetch(`${api}/products/${savedId}/image`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
@@ -585,8 +585,8 @@ export default function ProductosPage() {
                     style={{ width: "100%", padding: "6px 8px", border: "1px solid #ddd", borderRadius: "8px", fontSize: "13px" }}
                   >
                     <option value="">Seleccionar plantilla...</option>
-                    <option value="/vib3/templates/plantilla-camiseta.png">Camiseta manga corta</option>
-                    <option value="/vib3/templates/plantilla-musculosa.png">Musculosa / sin mangas</option>
+                    <option value="/baver/templates/plantilla-camiseta.png">Camiseta manga corta</option>
+                    <option value="/baver/templates/plantilla-musculosa.png">Musculosa / sin mangas</option>
                   </select>
                   {form.diseno_template_url && (
                     <img src={form.diseno_template_url} alt="preview" style={{ marginTop: "8px", maxHeight: "80px", objectFit: "contain", borderRadius: "6px", border: "1px solid #ddd" }} />

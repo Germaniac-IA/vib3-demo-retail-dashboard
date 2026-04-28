@@ -1,5 +1,5 @@
 module.exports = {
-  basePath: '/vib3',
-  assetPrefix: '/vib3',
+  basePath: '/baver',
+  assetPrefix: '/baver',
   typescript: { ignoreBuildErrors: true },
 };

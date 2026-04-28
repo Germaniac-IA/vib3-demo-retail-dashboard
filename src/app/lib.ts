@@ -1,6 +1,6 @@
 import type { Client, Order, Product } from "./types";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "/vib3/api";
+const API = process.env.NEXT_PUBLIC_API_URL || "/baver/api";
 
 function getToken() {
   if (typeof window === "undefined") return null;

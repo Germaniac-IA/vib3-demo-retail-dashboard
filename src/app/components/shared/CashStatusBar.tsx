@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "/vib3/api";
+const API = process.env.NEXT_PUBLIC_API_URL || "/baver/api";
 
 type Session = {
   id: number; user_name: string; status: string;

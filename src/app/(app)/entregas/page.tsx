@@ -1,6 +1,6 @@
 "use client";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "/vib3/api";
+const API = process.env.NEXT_PUBLIC_API_URL || "/baver/api";
 
 import { useEffect, useState } from "react";
 import { fetchJson } from "../../lib";

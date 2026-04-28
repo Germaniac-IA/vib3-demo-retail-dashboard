@@ -8,7 +8,7 @@ module.exports = {
     watch: false,
     env: {
       NODE_ENV: 'production',
-      NEXT_PUBLIC_API_URL: '/vib3/api'
+      NEXT_PUBLIC_API_URL: '/baver/api'
     }
   }]
 };
