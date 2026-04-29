@@ -14,6 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  icons: {
+    icon: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSyXddZg5oOVwo5DkTS9DrVOCKZumtqsUVCYQ&s",
+  },
   title: "Baver Dashboard",
   description: "Dashboard comercial y operativo de VIB3.ia Dashboard",
 };

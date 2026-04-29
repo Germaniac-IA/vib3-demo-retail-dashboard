@@ -88,9 +88,11 @@ export default function DisenoPage() {
   const [showItems, setShowItems] = useState(false);
   const [savingItems, setSavingItems] = useState(false);
   const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
-  const [renderCountdown, setRenderCountdown] = useState(30);
+  const [renderCountdown, setRenderCountdown] = useState(60);
   const [renderModalOpen, setRenderModalOpen] = useState(false);
   const [renderPolling, setRenderPolling] = useState(false);
+  const [recovering, setRecovering] = useState(false);
+  const [recoverMsg, setRecoverMsg] = useState("");
   const [itemDraft, setItemDraft] = useState({ item_number: "", head: "", center: "", footer: "", talle: "" });  const [createError, setCreateError] = useState("");
 
   const loadRequests = useCallback(async () => {
@@ -182,7 +184,7 @@ export default function DisenoPage() {
   async function handleRender() {
     if (!selected || !selected.client_uploaded_image_url) return;
     setRendering(true);
-    setRenderCountdown(30);
+    setRenderCountdown(60);
     setRenderModalOpen(true);
     setRenderPolling(true);
     try {
@@ -197,7 +199,7 @@ export default function DisenoPage() {
       setRendering(false);
       return;
     }
-    // Poll every 3s for up to 30s
+    // Poll every 3s for up to 60s
     const pollInterval = setInterval(async () => {
       setRenderCountdown(prev => {
         if (prev <= 3) {
@@ -205,7 +207,9 @@ export default function DisenoPage() {
           setRenderPolling(false);
           setRenderModalOpen(false);
           setRendering(false);
-          window.location.reload();
+          // Reload data instead of full page reload
+          loadRequests();
+          getJson<DesignRequest>(`/design-requests/${selected!.id}`).then(setSelected).catch(() => {});
           return 0;
         }
         return prev - 3;
@@ -249,6 +253,30 @@ export default function DisenoPage() {
     } catch (e) {
       console.error(e);
       alert("Error al reiniciar: " + (e as Error).message);
+    }
+  }
+
+  async function handleRecoverRender() {
+    if (!selected) return;
+    setRecovering(true);
+    setRecoverMsg("");
+    try {
+      await postJson(`/design-requests/${selected.id}/recover-render`, {});
+      const updated = await getJson<DesignRequest>(`/design-requests/${selected.id}`);
+      setSelected(updated);
+      loadRequests();
+      setRecoverMsg("✅ Render recuperado!");
+      setTimeout(() => setRecoverMsg(""), 3000);
+    } catch (e) {
+      const msg = (e as Error).message;
+      if (msg.includes("404")) {
+        setRecoverMsg("❌ No hay archivo renderizado en disco");
+      } else {
+        setRecoverMsg("❌ Error: " + msg);
+      }
+      setTimeout(() => setRecoverMsg(""), 5000);
+    } finally {
+      setRecovering(false);
     }
   }
 
@@ -392,6 +420,16 @@ export default function DisenoPage() {
                   <button onClick={handleResetDesign} style={{ padding: "8px 14px", background: "#e67e22", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, cursor: "pointer", fontWeight: 600 }}>
                     🔄 Reiniciar diseño
                   </button>
+                )}
+                {selected && !selected.rendered_image_url && selected.status !== "pending_template" && selected.status !== "template_uploaded" && selected.status !== "rendering" && (
+                  <button onClick={handleRecoverRender} disabled={recovering} style={{ padding: "8px 14px", background: recovering ? "#aaa" : "#8e44ad", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, cursor: recovering ? "not-allowed" : "pointer", fontWeight: 600 }}>
+                    {recovering ? "🔍 Buscando..." : "📂 Recuperar render anterior"}
+                  </button>
+                )}
+                {selected && recoverMsg && (
+                  <div style={{ width: "100%", marginTop: 8, fontSize: 13, color: recoverMsg.startsWith("✅") ? "#27ae60" : "#e74c3c", fontWeight: 600 }}>
+                    {recoverMsg}
+                  </div>
                 )}
                 {(selected.status === "rendered" || selected.status === "feedback") && (
                   <button onClick={handleApprove} style={{ padding: "8px 14px", background: "#16a085", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, cursor: "pointer", fontWeight: 600 }}>
