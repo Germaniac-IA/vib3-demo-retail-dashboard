@@ -845,6 +845,21 @@ function NPDetailModal({ orderId, onClose, onUpdated }: any) {
           {order.notes}
         </div>
       )}
+
+      <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
+        {remaining > 0 && (
+          <button
+            onClick={() => { window.location.href = `/baver/pagos?purchase_order_id=${order.id}`; }}
+            style={{ flex: 2, padding: "10px", borderRadius: "8px", border: "none", background: "#e74c3c", color: "#fff", cursor: "pointer", fontSize: "14px", fontWeight: 700 }}
+          >
+            💸 Pagar compra
+          </button>
+        )}
+        <button onClick={onClose}
+          style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "none", background: "#1a1a2e", color: "#fff", cursor: "pointer", fontSize: "14px", fontWeight: 700 }}>
+          Cerrar
+        </button>
+      </div>
       </div>
     </div>
   );

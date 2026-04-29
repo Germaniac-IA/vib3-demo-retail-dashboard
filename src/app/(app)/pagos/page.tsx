@@ -26,6 +26,7 @@ export default function PagosPage() {
   const [movForm, setMovForm] = useState({ financial_account_id: "", reason: "", purchase_order_id: "", supplier_id: "", amount: "", notes: "" });
   const [saving, setSaving] = useState(false);
   const [hasOpenCashSession, setHasOpenCashSession] = useState(false);
+  const [deepLinkHandled, setDeepLinkHandled] = useState(false);
 
   // NP selector state
   const [unpaidNPs, setUnpaidNPs] = useState<UnpaidNP[]>([]);
@@ -52,6 +53,39 @@ export default function PagosPage() {
       setPaymentMethods(pm);
       setSuppliers(ss);
       setHasOpenCashSession(Boolean(sess));
+
+      if (!deepLinkHandled && typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        const purchaseOrderId = params.get("purchase_order_id");
+        if (purchaseOrderId) {
+          setDeepLinkHandled(true);
+          if (!Boolean(sess)) {
+            alert("Necesitás abrir una caja antes de pagar esta compra");
+          } else {
+            fetchJson<UnpaidNP[]>("/purchase-orders/unpaid").then(list => {
+              setUnpaidNPs(list);
+              const np = list.find(x => String(x.id) === String(purchaseOrderId));
+              if (!np) {
+                alert("La compra no tiene saldo pendiente o no se encontró");
+                return;
+              }
+              setSelectedNp(np);
+              setNpSearch("");
+              setShowNpDropdown(false);
+              setMovForm({
+                financial_account_id: "",
+                reason: "np_payment",
+                purchase_order_id: String(np.id),
+                supplier_id: "",
+                amount: String(np.payment_pending),
+                notes: "",
+              });
+              setShowMovForm(true);
+              window.history.replaceState(null, "", "/baver/pagos");
+            }).catch(console.error);
+          }
+        }
+      }
     }).catch(console.error).finally(() => setLoading(false));
   }
 
