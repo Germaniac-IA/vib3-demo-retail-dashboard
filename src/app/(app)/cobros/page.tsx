@@ -29,6 +29,7 @@ export default function CobrosPage() {
   const [movForm, setMovForm] = useState({ financial_account_id: "", reason: "", order_id: "", client_id: "", amount: "", notes: "" });
   const [saving, setSaving] = useState(false);
   const [hasOpenCashSession, setHasOpenCashSession] = useState(false);
+  const [deepLinkHandled, setDeepLinkHandled] = useState(false);
 
   // NV selector state
   const [unpaidNVs, setUnpaidNVs] = useState<UnpaidNV[]>([]);
@@ -55,6 +56,39 @@ export default function CobrosPage() {
       setPaymentMethods(pm);
       setContacts(cc);
       setHasOpenCashSession(Boolean(sess));
+
+      if (!deepLinkHandled && typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        const orderId = params.get("order_id");
+        if (orderId) {
+          setDeepLinkHandled(true);
+          if (!Boolean(sess)) {
+            alert("Necesitás abrir una caja antes de cobrar esta NV");
+          } else {
+            fetchJson<UnpaidNV[]>("/orders/unpaid").then(list => {
+              setUnpaidNVs(list);
+              const nv = list.find(x => String(x.id) === String(orderId));
+              if (!nv) {
+                alert("La NV no tiene saldo pendiente o no se encontró");
+                return;
+              }
+              setSelectedNv(nv);
+              setNvSearch("");
+              setShowNvDropdown(false);
+              setMovForm({
+                financial_account_id: "",
+                reason: "nv_payment",
+                order_id: String(nv.id),
+                client_id: "",
+                amount: String(nv.payment_pending),
+                notes: "",
+              });
+              setShowMovForm(true);
+              window.history.replaceState(null, "", "/baver/cobros");
+            }).catch(console.error);
+          }
+        }
+      }
     }).catch(console.error).finally(() => setLoading(false));
   }
 

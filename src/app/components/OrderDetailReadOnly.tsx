@@ -168,10 +168,20 @@ export default function OrderDetailReadOnly({ orderId, onClose }: Props) {
         </div>
       )}
 
-      <button onClick={onClose}
-        style={{ marginTop: "8px", width: "100%", padding: "10px", borderRadius: "8px", border: "none", background: "#1a1a2e", color: "#fff", cursor: "pointer", fontSize: "14px", fontWeight: 700 }}>
-        Cerrar
-      </button>
+      <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+        {remaining > 0 && (
+          <button
+            onClick={() => { window.location.href = `/baver/cobros?order_id=${order.id}`; }}
+            style={{ flex: 2, padding: "10px", borderRadius: "8px", border: "none", background: "#27ae60", color: "#fff", cursor: "pointer", fontSize: "14px", fontWeight: 700 }}
+          >
+            💰 Cobrar NV
+          </button>
+        )}
+        <button onClick={onClose}
+          style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "none", background: "#1a1a2e", color: "#fff", cursor: "pointer", fontSize: "14px", fontWeight: 700 }}>
+          Cerrar
+        </button>
+      </div>
     </div>
   );
 }
