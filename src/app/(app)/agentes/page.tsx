@@ -1,8 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { fetchJson, postJson, putJson, deleteJson } from "../../lib";
 import { Card, IconButton, Button, Input, Select, PageTitle, Loading, Empty, Badge } from "../../components/shared/UI";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 type AgentInstruction = {
   id?: number;
@@ -198,9 +214,10 @@ export default function AgentesPage() {
   function addInstruction(type: "permanent" | "transient") {
     const text = newInstText[type].trim();
     if (!text) return;
+    const sameType = instructions.filter((i) => i.type === type);
     setInstructions([
       ...instructions,
-      { agent_id: editingId || 0, type, content: text, sort_order: instructions.length, is_active: true },
+      { agent_id: editingId || 0, type, content: text, sort_order: sameType.length, is_active: true },
     ]);
     setNewInstText({ ...newInstText, [type]: "" });
   }
@@ -222,6 +239,24 @@ export default function AgentesPage() {
       instructions.map((inst, i) => (i === index ? { ...inst, content } : inst))
     );
   }
+
+  const handleInstDragEnd = useCallback((event: DragEndEvent, type: "permanent" | "transient") => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const sameType = instructions.filter((i) => i.type === type);
+    const oldIndex = sameType.findIndex((i) => `inst-${i.id || i.content}` === active.id);
+    const newIndex = sameType.findIndex((i) => `inst-${i.id || i.content}` === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = [...sameType];
+    const [moved] = reordered.splice(oldIndex, 1);
+    reordered.splice(newIndex, 0, moved);
+    reordered.forEach((item, idx) => { item.sort_order = idx; });
+
+    const otherType = instructions.filter((i) => i.type !== type);
+    setInstructions([...otherType, ...reordered]);
+  }, [instructions]);
 
   // ── Procedimientos helpers ──
 
@@ -259,22 +294,23 @@ export default function AgentesPage() {
     );
   }
 
-  function moveStep(index: number, direction: "up" | "down") {
-    const target = direction === "up" ? index - 1 : index + 1;
-    if (target < 0 || target >= procedures.length) return;
-    const list = [...procedures];
-    const currentContext = list[index].context;
-    const targetContext = list[target].context;
-    // Only allow reorder within same context
-    if (currentContext !== targetContext) return;
-    [list[index], list[target]] = [list[target], list[index]];
-    // Fix step_order
-    const grouped = groupBy(list, "context");
-    for (const ctx of Object.keys(grouped)) {
-      grouped[ctx].forEach((p, i) => { p.step_order = i; });
-    }
-    setProcedures(list);
-  }
+  const handleProcDragEnd = useCallback((event: DragEndEvent, context: string) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const sameCtx = procedures.filter((p) => p.context === context);
+    const oldIndex = sameCtx.findIndex((p) => `proc-${p.id || p.step_name}` === active.id);
+    const newIndex = sameCtx.findIndex((p) => `proc-${p.id || p.step_name}` === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = [...sameCtx];
+    const [moved] = reordered.splice(oldIndex, 1);
+    reordered.splice(newIndex, 0, moved);
+    reordered.forEach((item, idx) => { item.step_order = idx; });
+
+    const otherCtx = procedures.filter((p) => p.context !== context);
+    setProcedures([...otherCtx, ...reordered]);
+  }, [procedures]);
 
   function groupBy<T extends Record<string, any>>(arr: T[], key: string): Record<string, T[]> {
     return arr.reduce((acc, item) => {
@@ -288,9 +324,12 @@ export default function AgentesPage() {
   const TONE_ICONS: Record<string, string> = { formal: "🤵", casual: "😊", picarro: "😏" };
   const permanentInst = instructions.filter((i) => i.type === "permanent");
   const transientInst = instructions.filter((i) => i.type === "transient");
-
-  // Group procedures by context
   const procByContext = groupBy(procedures, "context");
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
   return (
     <div>
@@ -413,21 +452,33 @@ export default function AgentesPage() {
                   {permanentInst.length === 0 ? (
                     <p style={{ fontSize: "12px", color: "#aaa" }}>Sin instrucciones permanentes</p>
                   ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: "8px" }}>
-                      {permanentInst.map((inst, idx) => {
-                        const globalIdx = instructions.findIndex((i) => i === inst);
-                        return (
-                          <InstructionItem
-                            key={globalIdx}
-                            content={inst.content}
-                            isActive={inst.is_active}
-                            onContentChange={(v) => updateInstructionContent(globalIdx, v)}
-                            onToggleActive={() => toggleInstActive(globalIdx)}
-                            onRemove={() => removeInstruction(globalIdx)}
-                          />
-                        );
-                      })}
-                    </div>
+                    <DndContext
+                      sensors={sensors}
+                      collisionDetection={closestCenter}
+                      onDragEnd={(e) => handleInstDragEnd(e, "permanent")}
+                    >
+                      <SortableContext
+                        items={permanentInst.map((i) => `inst-${i.id || i.content}`)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: "8px" }}>
+                          {permanentInst.map((inst, idx) => {
+                            const globalIdx = instructions.findIndex((i) => i === inst);
+                            return (
+                              <SortableInstructionItem
+                                key={`inst-${inst.id || inst.content}-${idx}`}
+                                id={`inst-${inst.id || inst.content}`}
+                                content={inst.content}
+                                isActive={inst.is_active}
+                                onContentChange={(v) => updateInstructionContent(globalIdx, v)}
+                                onToggleActive={() => toggleInstActive(globalIdx)}
+                                onRemove={() => removeInstruction(globalIdx)}
+                              />
+                            );
+                          })}
+                        </div>
+                      </SortableContext>
+                    </DndContext>
                   )}
                   <div style={{ display: "flex", gap: "6px" }}>
                     <textarea
@@ -449,21 +500,33 @@ export default function AgentesPage() {
                   {transientInst.length === 0 ? (
                     <p style={{ fontSize: "12px", color: "#aaa" }}>Sin instrucciones transitorias</p>
                   ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: "8px" }}>
-                      {transientInst.map((inst, idx) => {
-                        const globalIdx = instructions.findIndex((i) => i === inst);
-                        return (
-                          <InstructionItem
-                            key={globalIdx}
-                            content={inst.content}
-                            isActive={inst.is_active}
-                            onContentChange={(v) => updateInstructionContent(globalIdx, v)}
-                            onToggleActive={() => toggleInstActive(globalIdx)}
-                            onRemove={() => removeInstruction(globalIdx)}
-                          />
-                        );
-                      })}
-                    </div>
+                    <DndContext
+                      sensors={sensors}
+                      collisionDetection={closestCenter}
+                      onDragEnd={(e) => handleInstDragEnd(e, "transient")}
+                    >
+                      <SortableContext
+                        items={transientInst.map((i) => `inst-${i.id || i.content}`)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: "8px" }}>
+                          {transientInst.map((inst, idx) => {
+                            const globalIdx = instructions.findIndex((i) => i === inst);
+                            return (
+                              <SortableInstructionItem
+                                key={`inst-${inst.id || inst.content}-${idx}`}
+                                id={`inst-${inst.id || inst.content}`}
+                                content={inst.content}
+                                isActive={inst.is_active}
+                                onContentChange={(v) => updateInstructionContent(globalIdx, v)}
+                                onToggleActive={() => toggleInstActive(globalIdx)}
+                                onRemove={() => removeInstruction(globalIdx)}
+                              />
+                            );
+                          })}
+                        </div>
+                      </SortableContext>
+                    </DndContext>
                   )}
                   <div style={{ display: "flex", gap: "6px" }}>
                     <textarea
@@ -502,7 +565,6 @@ export default function AgentesPage() {
                   </div>
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "16px" }}>
-                    {/* Show procedures grouped by context */}
                     {CONTEXTS.map((ctx) => {
                       const steps = procByContext[ctx.value] || [];
                       if (steps.length === 0) return null;
@@ -512,26 +574,32 @@ export default function AgentesPage() {
                             <span style={{ fontWeight: 700, fontSize: "13px" }}>{ctx.label}</span>
                             <span style={{ fontSize: "11px", color: "#999" }}>({steps.length} pasos)</span>
                           </div>
-                          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                            {steps.map((proc, idx) => {
-                              const globalIdx = procedures.findIndex((p) => p === proc);
-                              return (
-                                <ProcedureItem
-                                  key={globalIdx}
-                                  step={proc}
-                                  stepIndex={idx}
-                                  totalInContext={steps.length}
-                                  canMoveUp={procByContext[proc.context] ? procByContext[proc.context].indexOf(proc) > 0 : false}
-                                  canMoveDown={procByContext[proc.context] ? procByContext[proc.context].indexOf(proc) < procByContext[proc.context].length - 1 : false}
-                                  onUpdate={(field, value) => updateProcedureStep(globalIdx, field, value)}
-                                  onToggleActive={() => toggleProcActive(globalIdx)}
-                                  onRemove={() => removeProcedureStep(globalIdx)}
-                                  onMoveUp={() => moveStep(globalIdx, "up")}
-                                  onMoveDown={() => moveStep(globalIdx, "down")}
-                                />
-                              );
-                            })}
-                          </div>
+                          <DndContext
+                            sensors={sensors}
+                            collisionDetection={closestCenter}
+                            onDragEnd={(e) => handleProcDragEnd(e, ctx.value)}
+                          >
+                            <SortableContext
+                              items={steps.map((p) => `proc-${p.id || p.step_name}`)}
+                              strategy={verticalListSortingStrategy}
+                            >
+                              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                                {steps.map((proc, idx) => {
+                                  const globalIdx = procedures.findIndex((p) => p === proc);
+                                  return (
+                                    <SortableProcedureItem
+                                      key={`proc-${proc.id || proc.step_name}-${idx}`}
+                                      id={`proc-${proc.id || proc.step_name}`}
+                                      step={proc}
+                                      onUpdate={(field, value) => updateProcedureStep(globalIdx, field, value)}
+                                      onToggleActive={() => toggleProcActive(globalIdx)}
+                                      onRemove={() => removeProcedureStep(globalIdx)}
+                                    />
+                                  );
+                                })}
+                              </div>
+                            </SortableContext>
+                          </DndContext>
                         </div>
                       );
                     })}
@@ -597,7 +665,6 @@ export default function AgentesPage() {
 }
 
 // ── Tab Button ──
-
 function TabButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <button
@@ -620,25 +687,38 @@ function TabButton({ label, active, onClick }: { label: string; active: boolean;
   );
 }
 
-// ── Instruction Item ──
-
-type InstructionItemProps = {
+// ── Sortable Instruction Item ──
+function SortableInstructionItem({
+  id, content, isActive, onContentChange, onToggleActive, onRemove,
+}: {
+  id: string;
   content: string;
   isActive: boolean;
   onContentChange: (v: string) => void;
   onToggleActive: () => void;
   onRemove: () => void;
-};
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
 
-function InstructionItem({ content, isActive, onContentChange, onToggleActive, onRemove }: InstructionItemProps) {
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    display: "flex",
+    gap: "6px",
+    alignItems: "flex-start",
+    background: isActive ? "#f0fff0" : "#fff5f5",
+    border: `1px solid ${isActive ? "#b3e5b3" : "#ffb3b3"}`,
+    borderRadius: "8px",
+    padding: "8px 10px",
+    opacity: isDragging ? 0.5 : (isActive ? 1 : 0.6),
+    cursor: "grab",
+  } as const;
+
   return (
-    <div style={{
-      display: "flex", gap: "6px", alignItems: "flex-start",
-      background: isActive ? "#f0fff0" : "#fff5f5",
-      border: `1px solid ${isActive ? "#b3e5b3" : "#ffb3b3"}`,
-      borderRadius: "8px", padding: "8px 10px",
-      opacity: isActive ? 1 : 0.6,
-    }}>
+    <div ref={setNodeRef} style={style} {...attributes}>
+      <div {...listeners} style={{ fontSize: "14px", color: "#aaa", marginTop: "2px", cursor: "grab", userSelect: "none" }}>
+        ⠿
+      </div>
       <span style={{ fontSize: "12px", color: "#888", marginTop: "4px" }}>{isActive ? "📌" : "📍"}</span>
       <textarea
         value={content}
@@ -670,59 +750,37 @@ function InstructionItem({ content, isActive, onContentChange, onToggleActive, o
   );
 }
 
-// ── Procedure Item ──
-
-type ProcedureItemProps = {
+// ── Sortable Procedure Item ──
+function SortableProcedureItem({
+  id, step, onUpdate, onToggleActive, onRemove,
+}: {
+  id: string;
   step: AgentProcedure;
-  stepIndex: number;
-  totalInContext: number;
-  canMoveUp: boolean;
-  canMoveDown: boolean;
   onUpdate: (field: keyof AgentProcedure, value: string | boolean | number) => void;
   onToggleActive: () => void;
   onRemove: () => void;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
-};
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
 
-function ProcedureItem({
-  step, stepIndex, canMoveUp, canMoveDown,
-  onUpdate, onToggleActive, onRemove, onMoveUp, onMoveDown,
-}: ProcedureItemProps) {
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    display: "flex",
+    gap: "6px",
+    alignItems: "flex-start",
+    background: step.active ? "#f0f7ff" : "#f5f5f5",
+    border: `1px solid ${step.active ? "#b3d4ff" : "#ddd"}`,
+    borderRadius: "8px",
+    padding: "8px 10px",
+    opacity: isDragging ? 0.5 : (step.active ? 1 : 0.5),
+    cursor: "grab",
+  } as const;
+
   return (
-    <div style={{
-      display: "flex", gap: "6px", alignItems: "flex-start",
-      background: step.active ? "#f0f7ff" : "#f5f5f5",
-      border: `1px solid ${step.active ? "#b3d4ff" : "#ddd"}`,
-      borderRadius: "8px", padding: "8px 10px",
-      opacity: step.active ? 1 : 0.5,
-    }}>
-      {/* Step number + reorder */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "2px", alignItems: "center", minWidth: "20px" }}>
-        <span style={{ fontSize: "11px", fontWeight: 700, color: "#999", lineHeight: "1" }}>#{stepIndex + 1}</span>
-        <button
-          onClick={onMoveUp}
-          disabled={!canMoveUp}
-          title="Mover arriba"
-          style={{
-            fontSize: "9px", cursor: canMoveUp ? "pointer" : "default",
-            border: "none", background: "none", padding: "1px",
-            opacity: canMoveUp ? 1 : 0.3,
-          }}
-        >▲</button>
-        <button
-          onClick={onMoveDown}
-          disabled={!canMoveDown}
-          title="Mover abajo"
-          style={{
-            fontSize: "9px", cursor: canMoveDown ? "pointer" : "default",
-            border: "none", background: "none", padding: "1px",
-            opacity: canMoveDown ? 1 : 0.3,
-          }}
-        >▼</button>
+    <div ref={setNodeRef} style={style} {...attributes}>
+      <div {...listeners} style={{ fontSize: "14px", color: "#aaa", marginTop: "2px", cursor: "grab", userSelect: "none" }}>
+        ⠿
       </div>
-
-      {/* Content */}
       <div style={{ flex: 1 }}>
         <input
           value={step.step_name}
@@ -745,8 +803,6 @@ function ProcedureItem({
           }}
         />
       </div>
-
-      {/* Actions */}
       <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
         <button
           onClick={onToggleActive}
