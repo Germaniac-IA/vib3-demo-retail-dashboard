@@ -57,6 +57,24 @@ function CompactABM({ title, items, onAdd, onEdit, onDelete, renderItem }: {
   );
 }
 
+// ─── MODAL FORM REUTILIZABLE ────────────────────────
+function ModalForm({ show, onClose, title, children }: {
+  show: boolean; onClose: () => void; title: string; children: React.ReactNode;
+}) {
+  if (!show) return null;
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}
+         onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div style={{ background: "#fff", borderRadius: "16px", padding: "28px", width: "100%", maxWidth: "440px", boxShadow: "0 8px 32px rgba(0,0,0,0.12)" }}>
+        <h3 style={{ margin: "0 0 20px", fontSize: "18px", fontWeight: 800, color: "#1a1a2e" }}>{title}</h3>
+        <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── MÉTODOS DE PAGO ───────────────────────────────
 function PaymentMethodsABM() {
   const [items, setItems] = useState<PaymentMethod[]>([]);
@@ -85,7 +103,7 @@ function PaymentMethodsABM() {
       if (editing) await putJson("/payment-methods/" + editing.id, { ...form });
       else await postJson("/payment-methods", form);
       setShowForm(false); load();
-    } catch (e) { console.error(e); } finally { setSaving(false); }
+    } catch (e: any) { console.error(e); alert(e?.message || "No se pudo guardar"); } finally { setSaving(false); }
   }
   async function remove(id: number) { if (!confirm("Eliminar?")) return; try { await deleteJson("/payment-methods/" + id); load(); } catch (e) { console.error(e); } }
   function renderItem(m: PaymentMethod) {
@@ -110,40 +128,28 @@ function PaymentMethodsABM() {
   return (
     <>
       <CompactABM title="💳 Métodos de Pago" items={items} onAdd={openNew} onEdit={openEdit} onDelete={remove} renderItem={renderItem} />
-      {showForm && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}
-             onClick={(e) => e.target === e.currentTarget && setShowForm(false)}>
-          <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", width: "100%" }}>
-            <h3 style={{ margin: "0 0 16px", fontSize: "16px", fontWeight: 800 }}>{editing ? "Editar" : "Nuevo"} Método de Pago</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              <input value={form.name} onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Nombre (ej: Mercado Pago)" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }} />
-              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", cursor: "pointer" }}>
-                <input type="checkbox" checked={form.is_cash} onChange={e => setForm(f => ({ ...f, is_cash: e.target.checked }))} />
-                Es efectivo
+      <ModalForm show={showForm} onClose={() => setShowForm(false)} title={(editing ? "Editar" : "Nuevo") + " Método de Pago"}>
+              <Input value={form.name} onChange={(v) => setForm((prev) => ({ ...prev, name: v }))} placeholder="Nombre (ej: Mercado Pago)" />
+              <label style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "13px", cursor: "pointer" }}>
+                <input type="checkbox" checked={form.is_cash} onChange={e => setForm((f) => ({ ...f, is_cash: e.target.checked }))}
+                  style={{ width: "18px", height: "18px", accentColor: "#1a1a2e", cursor: "pointer" }} />
+                <span style={{ fontWeight: 600 }}>Es efectivo</span>
               </label>
-              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", cursor: "pointer" }}>
-                <input type="checkbox" checked={form.is_personal} onChange={e => setForm(f => ({ ...f, is_personal: e.target.checked }))} />
-                Es método personal (no mostrar en caja)
+              <label style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "13px", cursor: "pointer" }}>
+                <input type="checkbox" checked={form.is_personal} onChange={e => setForm((f) => ({ ...f, is_personal: e.target.checked }))}
+                  style={{ width: "18px", height: "18px", accentColor: "#1a1a2e", cursor: "pointer" }} />
+                <span style={{ fontWeight: 600 }}>Es método personal (no mostrar en caja)</span>
               </label>
-              {!form.is_cash && (
-                <>
-                  <input value={form.alias} onChange={e => setForm(f => ({ ...f, alias: e.target.value }))}
-                    placeholder="Alias (opcional)" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }} />
-                  <input value={form.cbu_cvu} onChange={e => setForm(f => ({ ...f, cbu_cvu: e.target.value }))}
-                    placeholder="CBU / CVU" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }} />
-                  <input value={form.banco} onChange={e => setForm(f => ({ ...f, banco: e.target.value }))}
-                    placeholder="Banco" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }} />
-                </>
-              )}
-            </div>
-            <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
-              <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "1px solid #ddd", background: "#fff", cursor: "pointer" }}>Cancelar</button>
-              <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "none", background: "#1a1a2e", color: "#fff", cursor: "pointer", fontWeight: 700 }}>{saving ? "..." : "Guardar"}</button>
-            </div>
-          </div>
-        </div>
-      )}
+              {!form.is_cash && (<>
+                <Input value={form.alias} onChange={(v) => setForm((f) => ({ ...f, alias: v }))} placeholder="Alias (opcional)" />
+                <Input value={form.cbu_cvu} onChange={(v) => setForm((f) => ({ ...f, cbu_cvu: v }))} placeholder="CBU / CVU" />
+                <Input value={form.banco} onChange={(v) => setForm((f) => ({ ...f, banco: v }))} placeholder="Banco" />
+              </>)}
+              <div style={{ display: "flex", gap: "10px", marginTop: "8px" }}>
+                <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "10px", borderRadius: "10px", border: "2px solid #e0e0e0", background: "transparent", color: "#666", cursor: "pointer", fontWeight: 600, fontSize: "13px" }}>Cancelar</button>
+                <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: "10px", borderRadius: "10px", border: "none", background: "#1a1a2e", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: "13px" }}>{saving ? "Guardando..." : "Guardar"}</button>
+              </div>
+            </ModalForm>
     </>
   );
 }
@@ -171,7 +177,7 @@ function CategoriesABM() {
       if (editing) await putJson("/product-categories/" + editing.id, form);
       else await postJson("/product-categories", form);
       setShowForm(false); load();
-    } catch (e) { console.error(e); } finally { setSaving(false); }
+    } catch (e: any) { console.error(e); alert(e?.message || "No se pudo guardar la categoría"); } finally { setSaving(false); }
   }
   async function remove(id: number) { if (!confirm("Eliminar?")) return; try { await deleteJson("/product-categories/" + id); load(); } catch (e) { console.error(e); } }
   function renderItem(c: Category) {
@@ -188,30 +194,23 @@ function CategoriesABM() {
   return (
     <>
       <CompactABM title="📂 Categorías de Productos" items={items} onAdd={openNew} onEdit={openEdit} onDelete={remove} renderItem={renderItem} />
-      {showForm && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}
-             onClick={(e) => e.target === e.currentTarget && setShowForm(false)}>
-          <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", width: "100%" }}>
-            <h3 style={{ margin: "0 0 16px", fontSize: "16px", fontWeight: 800 }}>{editing ? "Editar" : "Nueva"} Categoría</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              <input value={form.name} onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Nombre de categoría" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }} />
-              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", cursor: "pointer" }}>
-                <input type="checkbox" checked={form.auto_generate_sku} onChange={e => setForm(f => ({ ...f, auto_generate_sku: e.target.checked }))} />
-                Auto-generar SKU
+      <ModalForm show={showForm} onClose={() => setShowForm(false)} title={(editing ? "Editar" : "Nueva") + " Categoría"}>
+              <Input value={form.name} onChange={(v) => setForm((prev) => ({ ...prev, name: v }))} placeholder="Nombre de categoría" />
+              <label style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "13px", cursor: "pointer" }}>
+                <input type="checkbox" checked={form.auto_generate_sku} onChange={e => setForm((f) => ({ ...f, auto_generate_sku: e.target.checked }))}
+                  style={{ width: "18px", height: "18px", accentColor: "#1a1a2e", cursor: "pointer" }} />
+                <span style={{ fontWeight: 600 }}>Auto-generar SKU</span>
               </label>
               {form.auto_generate_sku && (
-                <input value={form.sku_prefix} onChange={e => setForm(f => ({ ...f, sku_prefix: e.target.value.toUpperCase().substring(0,3) }))}
-                  placeholder="Prefijo SKU (3 letras)" maxLength={3} style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }} />
+                <input value={form.sku_prefix} onChange={e => setForm((f) => ({ ...f, sku_prefix: e.target.value.toUpperCase().substring(0,3) }))}
+                  placeholder="Prefijo SKU (3 letras)" maxLength={3}
+                  style={{ width: "100%", padding: "10px 14px", border: "2px solid #e8e8e8", borderRadius: "10px", fontSize: "13px", boxSizing: "border-box" }} />
               )}
-            </div>
-            <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
-              <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "1px solid #ddd", background: "#fff", cursor: "pointer" }}>Cancelar</button>
-              <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "none", background: "#1a1a2e", color: "#fff", cursor: "pointer", fontWeight: 700 }}>{saving ? "..." : "Guardar"}</button>
-            </div>
-          </div>
-        </div>
-      )}
+              <div style={{ display: "flex", gap: "10px", marginTop: "8px" }}>
+                <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "10px", borderRadius: "10px", border: "2px solid #e0e0e0", background: "transparent", color: "#666", cursor: "pointer", fontWeight: 600, fontSize: "13px" }}>Cancelar</button>
+                <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: "10px", borderRadius: "10px", border: "none", background: "#1a1a2e", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: "13px" }}>{saving ? "Guardando..." : "Guardar"}</button>
+              </div>
+            </ModalForm>
     </>
   );
 }
@@ -257,30 +256,27 @@ function BrandsABM() {
   return (
     <>
       <CompactABM title="🏷️ Marcas" items={items} onAdd={openNew} onEdit={openEdit} onDelete={remove} renderItem={renderItem} />
-      {showForm && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}
-             onClick={(e) => e.target === e.currentTarget && setShowForm(false)}>
-          <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", width: "100%" }}>
-            <h3 style={{ margin: "0 0 16px", fontSize: "16px", fontWeight: 800 }}>{editing ? "Editar" : "Nueva"} Marca</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              <input value={form.name} onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Nombre de marca" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }} />
-              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", cursor: "pointer" }}>
-                <input type="checkbox" checked={form.is_imported} onChange={e => setForm(f => ({ ...f, is_imported: e.target.checked }))} />
-                Es importado
+      <ModalForm show={showForm} onClose={() => setShowForm(false)} title={(editing ? "Editar" : "Nueva") + " Marca"}>
+              <Input value={form.name} onChange={(v) => setForm((prev) => ({ ...prev, name: v }))} placeholder="Nombre de marca" />
+              <label style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "13px", cursor: "pointer" }}>
+                <input type="checkbox" checked={form.is_imported} onChange={e => setForm((f) => ({ ...f, is_imported: e.target.checked }))}
+                  style={{ width: "18px", height: "18px", accentColor: "#1a1a2e", cursor: "pointer" }} />
+                <span style={{ fontWeight: 600 }}>Es importado</span>
               </label>
-              <div style={{ fontSize: "13px", color: "#666" }}>Nivel premium: {form.premium_level}</div>
-              <input type="range" min={1} max={5} value={form.premium_level}
-                onChange={e => setForm(f => ({ ...f, premium_level: Number(e.target.value) }))}
-                style={{ width: "100%" }} />
-            </div>
-            <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
-              <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "1px solid #ddd", background: "#fff", cursor: "pointer" }}>Cancelar</button>
-              <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "none", background: "#1a1a2e", color: "#fff", cursor: "pointer", fontWeight: 700 }}>{saving ? "..." : "Guardar"}</button>
-            </div>
-          </div>
-        </div>
-      )}
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                <span style={{ fontSize: "13px", fontWeight: 600, color: "#444" }}>Nivel premium: {form.premium_level}</span>
+                <input type="range" min={1} max={5} value={form.premium_level}
+                  onChange={e => setForm((f) => ({ ...f, premium_level: Number(e.target.value) }))}
+                  style={{ width: "100%", accentColor: "#1a1a2e" }} />
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "#aaa" }}>
+                  <span>X</span><span>XX</span><span>XXX</span><span>XXXX</span><span>XXXXX</span>
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: "10px", marginTop: "8px" }}>
+                <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "10px", borderRadius: "10px", border: "2px solid #e0e0e0", background: "transparent", color: "#666", cursor: "pointer", fontWeight: 600, fontSize: "13px" }}>Cancelar</button>
+                <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: "10px", borderRadius: "10px", border: "none", background: "#1a1a2e", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: "13px" }}>{saving ? "Guardando..." : "Guardar"}</button>
+              </div>
+            </ModalForm>
     </>
   );
 }
@@ -324,29 +320,19 @@ function SaleChannelsABM() {
   return (
     <>
       <CompactABM title="📡 Canales de Venta" items={items} onAdd={openNew} onEdit={openEdit} onDelete={remove} renderItem={renderItem} />
-      {showForm && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}
-             onClick={(e) => e.target === e.currentTarget && setShowForm(false)}>
-          <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", width: "100%" }}>
-            <h3 style={{ margin: "0 0 16px", fontSize: "16px", fontWeight: 800 }}>{editing ? "Editar" : "Nuevo"} Canal de Venta</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              <input value={form.name} onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Nombre (ej: Local, Domicilio, Digital)" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }} />
-              <input type="number" value={form.sort_order} min={0}
-                onChange={e => setForm(prev => ({ ...prev, sort_order: Number(e.target.value) }))}
-                placeholder="Orden" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }} />
-              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", cursor: "pointer", padding: "4px 0" }}>
-                <input type="checkbox" checked={form.has_delivery} onChange={e => setForm(prev => ({ ...prev, has_delivery: e.target.checked }))} style={{ width: "16px", height: "16px" }} />
+      <ModalForm show={showForm} onClose={() => setShowForm(false)} title={(editing ? "Editar" : "Nuevo") + " Canal de Venta"}>
+              <Input value={form.name} onChange={(v) => setForm((prev) => ({ ...prev, name: v }))} placeholder="Nombre (ej: Local, Domicilio, Digital)" />
+              <Input type="number" value={String(form.sort_order)} onChange={(v) => setForm((prev) => ({ ...prev, sort_order: Number(v) }))} placeholder="Orden" />
+              <label style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "13px", cursor: "pointer" }}>
+                <input type="checkbox" checked={form.has_delivery} onChange={e => setForm((prev) => ({ ...prev, has_delivery: e.target.checked }))}
+                  style={{ width: "18px", height: "18px", accentColor: "#1a1a2e", cursor: "pointer" }} />
                 <span style={{ fontWeight: 600 }}>🚚 Genera entregas automáticas</span>
               </label>
-            </div>
-            <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
-              <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "1px solid #ddd", background: "#fff", cursor: "pointer" }}>Cancelar</button>
-              <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "none", background: "#1a1a2e", color: "#fff", cursor: "pointer", fontWeight: 700 }}>{saving ? "..." : "Guardar"}</button>
-            </div>
-          </div>
-        </div>
-      )}
+              <div style={{ display: "flex", gap: "10px", marginTop: "8px" }}>
+                <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "10px", borderRadius: "10px", border: "2px solid #e0e0e0", background: "transparent", color: "#666", cursor: "pointer", fontWeight: 600, fontSize: "13px" }}>Cancelar</button>
+                <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: "10px", borderRadius: "10px", border: "none", background: "#1a1a2e", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: "13px" }}>{saving ? "Guardando..." : "Guardar"}</button>
+              </div>
+            </ModalForm>
     </>
   );
 }
@@ -391,31 +377,20 @@ function OrderStatusesABM() {
   return (
     <>
       <CompactABM title="🏁 Estados de Venta" items={items} onAdd={openNew} onEdit={openEdit} onDelete={remove} renderItem={renderItem} />
-      {showForm && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}
-             onClick={(e) => e.target === e.currentTarget && setShowForm(false)}>
-          <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", width: "100%" }}>
-            <h3 style={{ margin: "0 0 16px", fontSize: "16px", fontWeight: 800 }}>{editing ? "Editar" : "Nuevo"} Estado de Venta</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              <input value={form.name} onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Nombre (ej: Pedido, En Proceso, Entregado)" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }} />
-              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <label style={{ fontSize: "13px", color: "#666" }}>Color:</label>
-                <input type="color" value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))}
-                  style={{ width: "50px", height: "34px", borderRadius: "6px", border: "1px solid #ddd", cursor: "pointer" }} />
-                <span style={{ fontSize: "12px", color: "#888" }}>{form.color}</span>
+      <ModalForm show={showForm} onClose={() => setShowForm(false)} title={(editing ? "Editar" : "Nuevo") + " Estado de Venta"}>
+              <Input value={form.name} onChange={(v) => setForm((prev) => ({ ...prev, name: v }))} placeholder="Nombre (ej: Pedido, En Proceso, Entregado)" />
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <label style={{ fontSize: "13px", fontWeight: 600, color: "#555" }}>Color:</label>
+                <input type="color" value={form.color} onChange={e => setForm((f) => ({ ...f, color: e.target.value }))}
+                  style={{ width: "44px", height: "36px", borderRadius: "8px", border: "2px solid #e0e0e0", cursor: "pointer", padding: 0 }} />
+                <span style={{ fontSize: "12px", color: "#999" }}>{form.color}</span>
               </div>
-              <input type="number" value={form.sort_order} min={0}
-                onChange={e => setForm(prev => ({ ...prev, sort_order: Number(e.target.value) }))}
-                placeholder="Orden" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }} />
-            </div>
-            <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
-              <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "1px solid #ddd", background: "#fff", cursor: "pointer" }}>Cancelar</button>
-              <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "none", background: "#1a1a2e", color: "#fff", cursor: "pointer", fontWeight: 700 }}>{saving ? "..." : "Guardar"}</button>
-            </div>
-          </div>
-        </div>
-      )}
+              <Input type="number" value={String(form.sort_order)} onChange={(v) => setForm((prev) => ({ ...prev, sort_order: Number(v) }))} placeholder="Orden" />
+              <div style={{ display: "flex", gap: "10px", marginTop: "8px" }}>
+                <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "10px", borderRadius: "10px", border: "2px solid #e0e0e0", background: "transparent", color: "#666", cursor: "pointer", fontWeight: 600, fontSize: "13px" }}>Cancelar</button>
+                <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: "10px", borderRadius: "10px", border: "none", background: "#1a1a2e", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: "13px" }}>{saving ? "Guardando..." : "Guardar"}</button>
+              </div>
+            </ModalForm>
     </>
   );
 }
@@ -460,31 +435,20 @@ function PaymentStatusesABM() {
   return (
     <>
       <CompactABM title="💰 Estados de Pago" items={items} onAdd={openNew} onEdit={openEdit} onDelete={remove} renderItem={renderItem} />
-      {showForm && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}
-             onClick={(e) => e.target === e.currentTarget && setShowForm(false)}>
-          <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", width: "100%" }}>
-            <h3 style={{ margin: "0 0 16px", fontSize: "16px", fontWeight: 800 }}>{editing ? "Editar" : "Nuevo"} Estado de Pago</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              <input value={form.name} onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Nombre (ej: Impago, Cobrado Parcial, Cobrado)" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }} />
-              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <label style={{ fontSize: "13px", color: "#666" }}>Color:</label>
-                <input type="color" value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))}
-                  style={{ width: "50px", height: "34px", borderRadius: "6px", border: "1px solid #ddd", cursor: "pointer" }} />
-                <span style={{ fontSize: "12px", color: "#888" }}>{form.color}</span>
+      <ModalForm show={showForm} onClose={() => setShowForm(false)} title={(editing ? "Editar" : "Nuevo") + " Estado de Pago"}>
+              <Input value={form.name} onChange={(v) => setForm((prev) => ({ ...prev, name: v }))} placeholder="Nombre (ej: Impago, Cobrado Parcial, Cobrado)" />
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <label style={{ fontSize: "13px", fontWeight: 600, color: "#555" }}>Color:</label>
+                <input type="color" value={form.color} onChange={e => setForm((f) => ({ ...f, color: e.target.value }))}
+                  style={{ width: "44px", height: "36px", borderRadius: "8px", border: "2px solid #e0e0e0", cursor: "pointer", padding: 0 }} />
+                <span style={{ fontSize: "12px", color: "#999" }}>{form.color}</span>
               </div>
-              <input type="number" value={form.sort_order} min={0}
-                onChange={e => setForm(prev => ({ ...prev, sort_order: Number(e.target.value) }))}
-                placeholder="Orden" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }} />
-            </div>
-            <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
-              <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "1px solid #ddd", background: "#fff", cursor: "pointer" }}>Cancelar</button>
-              <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "none", background: "#1a1a2e", color: "#fff", cursor: "pointer", fontWeight: 700 }}>{saving ? "..." : "Guardar"}</button>
-            </div>
-          </div>
-        </div>
-      )}
+              <Input type="number" value={String(form.sort_order)} onChange={(v) => setForm((prev) => ({ ...prev, sort_order: Number(v) }))} placeholder="Orden" />
+              <div style={{ display: "flex", gap: "10px", marginTop: "8px" }}>
+                <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "10px", borderRadius: "10px", border: "2px solid #e0e0e0", background: "transparent", color: "#666", cursor: "pointer", fontWeight: 600, fontSize: "13px" }}>Cancelar</button>
+                <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: "10px", borderRadius: "10px", border: "none", background: "#1a1a2e", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: "13px" }}>{saving ? "Guardando..." : "Guardar"}</button>
+              </div>
+            </ModalForm>
     </>
   );
 }
@@ -621,32 +585,23 @@ function InputItemsABM() {
         </div>
       </Card>
 
-      {showForm && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}
-             onClick={(e) => e.target === e.currentTarget && setShowForm(false)}>
-          <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", width: "100%" }}>
-            <h3 style={{ margin: "0 0 16px", fontSize: "16px", fontWeight: 800 }}>{editing ? "Editar" : "Nuevo"} Insumo</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              <input value={form.name} onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))} placeholder="Nombre" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }} />
-              <input value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} placeholder="Unidad (ej: kg, litros)" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }} />
+      <ModalForm show={showForm} onClose={() => setShowForm(false)} title={(editing ? "Editar" : "Nuevo") + " Insumo"}>
+              <Input value={form.name} onChange={(v) => setForm((prev) => ({ ...prev, name: v }))} placeholder="Nombre" />
+              <Input value={form.unit} onChange={(v) => setForm((f) => ({ ...f, unit: v }))} placeholder="Unidad (ej: kg, litros)" />
               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <input type="checkbox" checked={form.requires_stock} onChange={e => setForm(f => ({ ...f, requires_stock: e.target.checked }))} style={{ width: "18px", height: "18px" }} />
+                <input type="checkbox" checked={form.requires_stock} onChange={e => setForm(f => ({ ...f, requires_stock: e.target.checked }))}
+                  style={{ width: "18px", height: "18px", accentColor: "#1a1a2e", cursor: "pointer" }} />
                 <span style={{ fontSize: "13px", fontWeight: 600 }}>Lleva stock</span>
               </div>
               {form.requires_stock && (
-                <input type="number" value={form.stock_quantity} min={0} onChange={e => setForm(f => ({ ...f, stock_quantity: e.target.value }))}
-                  placeholder="Cantidad actual en stock" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }} />
+                <Input type="number" value={String(form.stock_quantity)} onChange={(v) => setForm((f) => ({ ...f, stock_quantity: v }))} placeholder="Cantidad actual en stock" />
               )}
-              <input type="number" value={form.default_cost} min={0} onChange={e => setForm(f => ({ ...f, default_cost: e.target.value }))}
-                placeholder="Costo default" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }} />
-            </div>
-            <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
-              <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "1px solid #ddd", background: "#fff", cursor: "pointer" }}>Cancelar</button>
-              <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "none", background: "#1a1a2e", color: "#fff", cursor: "pointer", fontWeight: 700 }}>{saving ? "..." : "Guardar"}</button>
-            </div>
-          </div>
-        </div>
-      )}
+              <Input type="number" value={String(form.default_cost)} onChange={(v) => setForm((f) => ({ ...f, default_cost: v }))} placeholder="Costo default" />
+              <div style={{ display: "flex", gap: "10px", marginTop: "8px" }}>
+                <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "10px", borderRadius: "10px", border: "2px solid #e0e0e0", background: "transparent", color: "#666", cursor: "pointer", fontWeight: 600, fontSize: "13px" }}>Cancelar</button>
+                <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: "10px", borderRadius: "10px", border: "none", background: "#1a1a2e", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: "13px" }}>{saving ? "Guardando..." : "Guardar"}</button>
+              </div>
+            </ModalForm>
 
       {showCostModal && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}
@@ -737,29 +692,19 @@ function AttributeTypesABM() {
   return (
     <>
       <CompactABM title="📏 Tipos de Atributo" items={items} onAdd={openNew} onEdit={openEdit} onDelete={remove} renderItem={renderItem} />
-      {showForm && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}
-             onClick={(e) => e.target === e.currentTarget && setShowForm(false)}>
-          <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", width: "100%" }}>
-            <h3 style={{ margin: "0 0 16px", fontSize: "16px", fontWeight: 800 }}>{editing ? "Editar" : "Nuevo"} Tipo de Atributo</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              <input value={form.name} onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Nombre del tipo de atributo" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }} />
-              <input type="number" value={form.sort_order} min={0}
-                onChange={e => setForm(f => ({ ...f, sort_order: Number(e.target.value) }))}
-                placeholder="Orden de ordenamiento" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }} />
-              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", cursor: "pointer" }}>
-                <input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} />
-                Activo
+      <ModalForm show={showForm} onClose={() => setShowForm(false)} title={(editing ? "Editar" : "Nuevo") + " Tipo de Atributo"}>
+              <Input value={form.name} onChange={(v) => setForm((prev) => ({ ...prev, name: v }))} placeholder="Nombre del tipo de atributo" />
+              <Input type="number" value={String(form.sort_order)} onChange={(v) => setForm((f) => ({ ...f, sort_order: Number(v) }))} placeholder="Orden de ordenamiento" />
+              <label style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "13px", cursor: "pointer" }}>
+                <input type="checkbox" checked={form.is_active} onChange={e => setForm((f) => ({ ...f, is_active: e.target.checked }))}
+                  style={{ width: "18px", height: "18px", accentColor: "#1a1a2e", cursor: "pointer" }} />
+                <span style={{ fontWeight: 600 }}>Activo</span>
               </label>
-            </div>
-            <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
-              <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "1px solid #ddd", background: "#fff", cursor: "pointer" }}>Cancelar</button>
-              <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "none", background: "#1a1a2e", color: "#fff", cursor: "pointer", fontWeight: 700 }}>{saving ? "..." : "Guardar"}</button>
-            </div>
-          </div>
-        </div>
-      )}
+              <div style={{ display: "flex", gap: "10px", marginTop: "8px" }}>
+                <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "10px", borderRadius: "10px", border: "2px solid #e0e0e0", background: "transparent", color: "#666", cursor: "pointer", fontWeight: 600, fontSize: "13px" }}>Cancelar</button>
+                <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: "10px", borderRadius: "10px", border: "none", background: "#1a1a2e", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: "13px" }}>{saving ? "Guardando..." : "Guardar"}</button>
+              </div>
+            </ModalForm>
     </>
   );
 }
@@ -821,30 +766,19 @@ function AttributeValuesABM() {
   return (
     <>
       <CompactABM title="📐 Valores de Atributo" items={items} onAdd={openNew} onEdit={openEdit} onDelete={remove} renderItem={renderItem} />
-      {showForm && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}
-             onClick={(e) => e.target === e.currentTarget && setShowForm(false)}>
-          <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", width: "100%" }}>
-            <h3 style={{ margin: "0 0 16px", fontSize: "16px", fontWeight: 800 }}>{editing ? "Editar" : "Nuevo"} Valor de Atributo</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+      <ModalForm show={showForm} onClose={() => setShowForm(false)} title={(editing ? "Editar" : "Nuevo") + " Valor de Atributo"}>
               <select value={form.attribute_type_id} onChange={e => setForm(f => ({ ...f, attribute_type_id: Number(e.target.value) }))}
-                style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }}>
+                style={{ padding: "10px 14px", borderRadius: "10px", border: "2px solid #e8e8e8", fontSize: "13px", width: "100%", boxSizing: "border-box" }}>
                 <option value={0}>-- Seleccionar tipo --</option>
                 {attributeTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
-              <input value={form.value} onChange={e => setForm(prev => ({ ...prev, value: e.target.value }))}
-                placeholder="Valor del atributo" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }} />
-              <input type="number" value={form.sort_order} min={0}
-                onChange={e => setForm(f => ({ ...f, sort_order: Number(e.target.value) }))}
-                placeholder="Orden" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }} />
-            </div>
-            <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
-              <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "1px solid #ddd", background: "#fff", cursor: "pointer" }}>Cancelar</button>
-              <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "none", background: "#1a1a2e", color: "#fff", cursor: "pointer", fontWeight: 700 }}>{saving ? "..." : "Guardar"}</button>
-            </div>
-          </div>
-        </div>
-      )}
+              <Input value={form.value} onChange={(v) => setForm((prev) => ({ ...prev, value: v }))} placeholder="Valor del atributo" />
+              <Input type="number" value={String(form.sort_order)} onChange={(v) => setForm((f) => ({ ...f, sort_order: Number(v) }))} placeholder="Orden" />
+              <div style={{ display: "flex", gap: "10px", marginTop: "8px" }}>
+                <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "10px", borderRadius: "10px", border: "2px solid #e0e0e0", background: "transparent", color: "#666", cursor: "pointer", fontWeight: 600, fontSize: "13px" }}>Cancelar</button>
+                <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: "10px", borderRadius: "10px", border: "none", background: "#1a1a2e", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: "13px" }}>{saving ? "Guardando..." : "Guardar"}</button>
+              </div>
+            </ModalForm>
     </>
   );
 }
@@ -917,28 +851,21 @@ function EntitiesABM() {
   return (
     <>
       <CompactABM title="🏢 Entidades / Clubes" items={items} onAdd={openNew} onEdit={openEdit} onDelete={remove} renderItem={renderItem} />
-      {showForm && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}
-             onClick={(e) => e.target === e.currentTarget && setShowForm(false)}>
-          <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", width: "100%" }}>
-            <h3 style={{ margin: "0 0 16px", fontSize: "16px", fontWeight: 800 }}>{editing ? "Editar" : "Nueva"} Entidad / Club</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              <input value={form.name} onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Nombre (ej: Club San Juan)" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }} />
+      <ModalForm show={showForm} onClose={() => setShowForm(false)} title={(editing ? "Editar" : "Nueva") + " Entidad / Club"}>
+              <Input value={form.name} onChange={(v) => setForm((prev) => ({ ...prev, name: v }))} placeholder="Nombre (ej: Club San Juan)" />
               <textarea value={form.notes} onChange={e => setForm(prev => ({ ...prev, notes: e.target.value }))}
-                placeholder="Notas (opcional)" rows={3} style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px", resize: "vertical" }} />
-              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", cursor: "pointer" }}>
-                <input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} />
-                Activo
+                placeholder="Notas (opcional)" rows={3}
+                style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", border: "2px solid #e8e8e8", fontSize: "13px", resize: "vertical", boxSizing: "border-box" }} />
+              <label style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "13px", cursor: "pointer" }}>
+                <input type="checkbox" checked={form.is_active} onChange={e => setForm((f) => ({ ...f, is_active: e.target.checked }))}
+                  style={{ width: "18px", height: "18px", accentColor: "#1a1a2e", cursor: "pointer" }} />
+                <span style={{ fontWeight: 600 }}>Activo</span>
               </label>
-            </div>
-            <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
-              <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "1px solid #ddd", background: "#fff", cursor: "pointer" }}>Cancelar</button>
-              <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "none", background: "#1a1a2e", color: "#fff", cursor: "pointer", fontWeight: 700 }}>{saving ? "..." : "Guardar"}</button>
-            </div>
-          </div>
-        </div>
-      )}
+              <div style={{ display: "flex", gap: "10px", marginTop: "8px" }}>
+                <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "10px", borderRadius: "10px", border: "2px solid #e0e0e0", background: "transparent", color: "#666", cursor: "pointer", fontWeight: 600, fontSize: "13px" }}>Cancelar</button>
+                <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: "10px", borderRadius: "10px", border: "none", background: "#1a1a2e", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: "13px" }}>{saving ? "Guardando..." : "Guardar"}</button>
+              </div>
+            </ModalForm>
     </>
   );
 }
