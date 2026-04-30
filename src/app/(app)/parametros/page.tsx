@@ -177,7 +177,15 @@ function CategoriesABM() {
       if (editing) await putJson("/product-categories/" + editing.id, form);
       else await postJson("/product-categories", form);
       setShowForm(false); load();
-    } catch (e: any) { console.error(e); alert(e?.message || "No se pudo guardar la categoría"); } finally { setSaving(false); }
+    } catch (e: any) {
+      console.error(e);
+      let msg = e?.message || "No se pudo guardar la categoría";
+      try {
+        const parsed = JSON.parse(msg);
+        msg = parsed?.error || parsed?.message || msg;
+      } catch {}
+      alert(msg);
+    } finally { setSaving(false); }
   }
   async function remove(id: number) { if (!confirm("Eliminar?")) return; try { await deleteJson("/product-categories/" + id); load(); } catch (e) { console.error(e); } }
   function renderItem(c: Category) {
