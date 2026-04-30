@@ -81,11 +81,11 @@ export default function AgentesPage() {
 
   useEffect(() => {
     if (editingId) {
-      fetchJson<AgentInstruction[]>(`/agent-instructions?agent_id=${editingId}`)
+      fetchJson<any[]>(`/agent-instructions?agent_id=${editingId}`)
         .then((rows) => {
-          const normalized = rows.map((r: AgentInstruction) => ({
+          const normalized: AgentInstruction[] = rows.map((r: any) => ({
             ...r,
-            type: r.type === "transient" ? "transient" : "permanent",
+            type: r.type === "transient" ? "transient" as const : "permanent" as const,
           }));
           setInstructions(normalized);
         })
