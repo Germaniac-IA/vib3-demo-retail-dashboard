@@ -39,6 +39,8 @@ type AgentProcedure = {
   active: boolean;
 };
 
+type User = { id: number; name: string; username: string; is_active: boolean };
+
 type Agent = {
   id: number;
   name: string;
@@ -49,6 +51,7 @@ type Agent = {
   tone: string;
   industry_context: string;
   autonomy_level: string;
+  cash_user_id?: number | null;
 };
 
 const CONTEXTS = [
@@ -60,6 +63,7 @@ const CONTEXTS = [
 
 export default function AgentesPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -83,12 +87,13 @@ export default function AgentesPage() {
     autonomy_level: "partial",
     working_hours: "09:00-18:00",
     industry_context: "",
+    cash_user_id: "",
   });
 
   function loadAgents() {
     setLoading(true);
-    fetchJson<Agent[]>("/agents")
-      .then(setAgents)
+    Promise.all([fetchJson<Agent[]>("/agents"), fetchJson<User[]>("/users")])
+      .then(([a, u]) => { setAgents(a); setUsers(u.filter(user => user.is_active !== false)); })
       .catch(console.error)
       .finally(() => setLoading(false));
   }
@@ -128,13 +133,14 @@ export default function AgentesPage() {
       autonomy_level: agent.autonomy_level,
       working_hours: agent.working_hours,
       industry_context: agent.industry_context || "",
+      cash_user_id: agent.cash_user_id ? String(agent.cash_user_id) : "",
     });
     setShowForm(true);
   }
 
   async function handleSave() {
     try {
-      const agentPayload = { ...form };
+      const agentPayload = { ...form, cash_user_id: form.cash_user_id ? Number(form.cash_user_id) : null };
       let savedAgentId = editingId;
 
       if (editingId) {
@@ -352,6 +358,7 @@ export default function AgentesPage() {
                     </Badge>
                     <Badge>{agent.platform}</Badge>
                     <span style={{ fontSize: "14px" }}>{TONE_ICONS[agent.tone] || "💬"}</span>
+                    {agent.cash_user_id && <Badge>💵 Caja: {users.find(u => u.id === agent.cash_user_id)?.name || `Usuario ${agent.cash_user_id}`}</Badge>}
                   </div>
                   {agent.description && (
                     <p style={{ margin: "2px 0 0", fontSize: "13px", color: "#666" }}>{agent.description}</p>
@@ -419,6 +426,12 @@ export default function AgentesPage() {
             </div>
 
             <Input label="Horario" value={form.working_hours} onChange={(v) => setForm({ ...form, working_hours: v })} placeholder="09:00-18:00" />
+
+            <Select label="Usuario de caja" value={form.cash_user_id} onChange={(v) => setForm({ ...form, cash_user_id: v })}
+              options={[
+                { value: "", label: "Sin usuario de caja" },
+                ...users.map((u) => ({ value: String(u.id), label: `💵 ${u.name || u.username}` })),
+              ]} />
 
             <div style={{ marginBottom: "12px" }}>
               <label style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "4px", color: "#555" }}>Contexto del negocio</label>
