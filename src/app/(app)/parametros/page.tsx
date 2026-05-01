@@ -12,6 +12,7 @@ type SaleChannel = { id: number; name: string; is_active: boolean; sort_order: n
 type OrderStatus = { id: number; name: string; color: string; sort_order: number; is_active: boolean };
 type PaymentStatus = { id: number; name: string; color: string; sort_order: number; is_active: boolean };
 type Entity = { id: number; name: string; notes?: string; is_active?: boolean };
+type ExpenseCategory = { id: number; name: string; is_active: boolean; sort_order: number };
 
 type AttributeType = { id: number; name: string; sort_order: number; is_active: boolean };
 type AttributeValue = { id: number; attribute_type_id: number; value: string; sort_order: number; type_name?: string };
@@ -799,9 +800,40 @@ function AttributeValuesABM() {
 }
 
 
+
+function ExpenseCategoriesABM() {
+  const [items, setItems] = useState<ExpenseCategory[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<ExpenseCategory | null>(null);
+  const [form, setForm] = useState({ name: "", sort_order: 0, is_active: true });
+  const [saving, setSaving] = useState(false);
+
+  function load() { setLoading(true); fetchJson<ExpenseCategory[]>("/expense-categories").then(setItems).catch(console.error).finally(() => setLoading(false)); }
+  useEffect(() => { load(); }, []);
+  function openNew() { setEditing(null); setForm({ name: "", sort_order: items.length + 1, is_active: true }); setShowForm(true); }
+  function openEdit(c: ExpenseCategory) { setEditing(c); setForm({ name: c.name, sort_order: c.sort_order || 0, is_active: c.is_active !== false }); setShowForm(true); }
+  async function handleSave() {
+    if (!form.name.trim()) return;
+    setSaving(true);
+    try { if (editing) await putJson("/expense-categories/" + editing.id, form); else await postJson("/expense-categories", form); setShowForm(false); load(); }
+    catch (e) { console.error(e); } finally { setSaving(false); }
+  }
+  async function remove(id: number) { if (!confirm("Eliminar?")) return; try { await deleteJson("/expense-categories/" + id); load(); } catch (e) { console.error(e); } }
+  function renderItem(c: ExpenseCategory) { return <div key={c.id} style={{ padding: "5px 0", borderBottom: "1px solid #f5", fontSize: "12px", display: "flex", alignItems: "center", gap: "6px" }}><span style={{ flex: 1, fontWeight: 600 }}>{c.name}</span><span style={{ fontSize: "11px", color: "#999" }}>#{c.sort_order || 0}</span><IconButton variant="ghost" title="Editar" onClick={() => openEdit(c)}>✏️</IconButton><IconButton variant="danger" title="Eliminar" onClick={() => remove(c.id)}>🗑️</IconButton></div>; }
+  return <><CompactABM title="🧾 Categorías de gastos" items={items} onAdd={openNew} onEdit={openEdit} onDelete={remove} renderItem={renderItem} />
+    <ModalForm show={showForm} onClose={() => setShowForm(false)} title={(editing ? "Editar" : "Nueva") + " Categoría de gasto"}>
+      <Input value={form.name} onChange={(v) => setForm(f => ({ ...f, name: v }))} placeholder="Nombre" />
+      <Input type="number" value={String(form.sort_order)} onChange={(v) => setForm(f => ({ ...f, sort_order: Number(v) }))} placeholder="Orden" />
+      <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px" }}><input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} /> Activa</label>
+      <div style={{ display: "flex", gap: "10px", marginTop: "8px" }}><button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "10px", borderRadius: "10px", border: "2px solid #e0e0e0", background: "transparent", color: "#666", cursor: "pointer", fontWeight: 600, fontSize: "13px" }}>Cancelar</button><button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: "10px", borderRadius: "10px", border: "none", background: "#1a1a2e", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: "13px" }}>{saving ? "Guardando..." : "Guardar"}</button></div>
+    </ModalForm></>;
+}
+
 const TABS = [
   { key: "metodos", label: "💳 Métodos de Pago" },
   { key: "categorias", label: "📂 Categorías" },
+  { key: "categorias_gastos", label: "🧾 Categorías de gastos" },
   { key: "marcas", label: "🏷️ Marcas" },
   { key: "canales", label: "📡 Canales de Venta" },
   { key: "estados_venta", label: "🏁 Estados de Venta" },
@@ -828,6 +860,7 @@ export default function ParametrosPage() {
       <div>
         {activeTab === "metodos" && <PaymentMethodsABM />}
         {activeTab === "categorias" && <CategoriesABM />}
+        {activeTab === "categorias_gastos" && <ExpenseCategoriesABM />}
         {activeTab === "marcas" && <BrandsABM />}
         {activeTab === "canales" && <SaleChannelsABM />}
         {activeTab === "estados_venta" && <OrderStatusesABM />}
