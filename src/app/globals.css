@@ -156,3 +156,116 @@ a { color: inherit; text-decoration: none; }
 [data-theme="dark"] [style*="position: fixed"] {
   background: rgba(0,0,0,0.7) !important;
 }
+
+/* ==================== MOBILE RESPONSIVE BASE ==================== */
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+.app-shell,
+.app-main,
+.app-content {
+  min-width: 0;
+  max-width: 100vw;
+}
+
+.app-shell {
+  width: 100%;
+  overflow-x: hidden;
+}
+
+.app-main {
+  width: 100%;
+}
+
+.app-content {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.app-content table {
+  max-width: 100%;
+}
+
+.app-content img,
+.app-content video,
+.app-content canvas,
+.app-content svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.app-content input,
+.app-content select,
+.app-content textarea,
+.app-content button {
+  max-width: 100%;
+}
+
+[data-theme="dark"] .app-header {
+  background: #1a1a2e !important;
+  border-bottom: 1px solid #2a2a4a !important;
+}
+
+[data-theme="light"] .app-header {
+  background: #ffffff !important;
+  border-bottom: 1px solid #e0e0e0 !important;
+}
+
+[data-theme="dark"] .app-header button {
+  color: #e0e0e0 !important;
+  border-color: #2a2a4a !important;
+}
+
+[data-theme="light"] .app-header button {
+  color: #1a1a2e !important;
+  border-color: #e0e0e0 !important;
+}
+
+@media (max-width: 720px) {
+  .app-header {
+    padding: 8px 10px !important;
+    gap: 8px !important;
+    position: sticky;
+    top: 0;
+    z-index: 30;
+  }
+
+  .app-content {
+    padding: 12px !important;
+  }
+
+  .app-content table {
+    min-width: 640px;
+  }
+
+  .app-content h1 {
+    font-size: clamp(24px, 8vw, 34px) !important;
+    line-height: 1.15 !important;
+  }
+
+  .app-content h2 {
+    font-size: clamp(20px, 6vw, 28px) !important;
+    line-height: 1.2 !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .sidebar {
+    width: min(82vw, 260px) !important;
+  }
+
+  .app-header button {
+    padding: 6px 8px !important;
+    font-size: 13px !important;
+  }
+
+  .app-content {
+    padding: 10px !important;
+  }
+
+  .app-content table {
+    font-size: 12px !important;
+  }
+}

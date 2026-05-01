@@ -25,7 +25,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div data-theme={theme} className="page-content" style={{ display: "flex", minHeight: "100vh" }}>
+    <div data-theme={theme} className="page-content app-shell" style={{ display: "flex", minHeight: "100vh" }}>
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       {/* Open session modal */}
@@ -96,9 +96,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       )}
 
       {/* Main content */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+      <div className="app-main" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
         {/* Header */}
-        <header style={{ background: "#fff", borderBottom: "1px solid #e0e0e0", padding: "8px 16px", display: "flex", alignItems: "center", gap: "12px" }}>
+        <header className="app-header" style={{ background: "#fff", borderBottom: "1px solid #e0e0e0", padding: "8px 16px", display: "flex", alignItems: "center", gap: "12px" }}>
           <button onClick={() => setSidebarOpen(true)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "20px", padding: "4px" }}>☰</button>
           <div style={{ flex: 1 }} />
           {!session ? (
@@ -112,7 +112,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <button onClick={handleLogout} title="Salir" style={{ background: "none", border: "1px solid #eee", borderRadius: "8px", padding: "6px 10px", cursor: "pointer", fontSize: "14px" }}>🔓</button>
         </header>
 
-        <div style={{ padding: "16px 20px" }}>{children}</div>
+        <div className="app-content" style={{ padding: "16px 20px" }}>{children}</div>
       </div>
     </div>
   );
