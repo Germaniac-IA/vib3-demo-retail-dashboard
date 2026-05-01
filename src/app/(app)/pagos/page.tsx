@@ -5,10 +5,11 @@ import { fetchJson, postJson, deleteJson } from "../../lib";
 import { exportCashWorkbook } from "../../utils/exportCashWorkbook";
 import { Card, PageTitle, Loading, Empty } from "../../components/shared/UI";
 
-type CashMovement = { id: number; type: string; reason: string; amount: number; account_name: string; supplier_name?: string; provider_name?: string; order_number?: string; purchase_order_id?: number; payment_status_name?: string; payment_status_color?: string; notes?: string; created_at: string; };
+type CashMovement = { id: number; type: string; reason: string; amount: number; account_name: string; supplier_name?: string; provider_name?: string; order_number?: string; purchase_order_id?: number; expense_id?: number; expense_number?: string; expense_description?: string; payment_status_name?: string; payment_status_color?: string; notes?: string; created_at: string; };
 type PaymentMethod = { id: number; name: string; requires_arqueo: boolean };
 type Supplier = { id: number; name: string; phone: string; whatsapp: string; };
 type UnpaidNP = { id: number; order_number: string; provider_name: string; total: number; payment_paid: number; payment_pending: number; };
+type UnpaidExpense = { id: number; expense_number: string; description: string; category_name?: string; provider_name?: string; total: number; payment_paid: number; payment_pending: number; };
 type Stats = { total_in: number; total_out: number; move_count: number; nv_count: number; net: number; };
 type Period = "today" | "week" | "month" | "custom";
 
@@ -23,7 +24,7 @@ export default function PagosPage() {
   const [loading, setLoading] = useState(true);
   const [showMovForm, setShowMovForm] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [movForm, setMovForm] = useState({ financial_account_id: "", reason: "", purchase_order_id: "", supplier_id: "", amount: "", notes: "" });
+  const [movForm, setMovForm] = useState({ financial_account_id: "", reason: "", purchase_order_id: "", expense_id: "", supplier_id: "", amount: "", notes: "" });
   const [saving, setSaving] = useState(false);
   const [hasOpenCashSession, setHasOpenCashSession] = useState(false);
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
@@ -34,6 +35,12 @@ export default function PagosPage() {
   const [npSearch, setNpSearch] = useState("");
   const [showNpDropdown, setShowNpDropdown] = useState(false);
   const [selectedNp, setSelectedNp] = useState<UnpaidNP | null>(null);
+
+  // Expense selector state
+  const [unpaidExpenses, setUnpaidExpenses] = useState<UnpaidExpense[]>([]);
+  const [expenseSearch, setExpenseSearch] = useState("");
+  const [showExpenseDropdown, setShowExpenseDropdown] = useState(false);
+  const [selectedExpense, setSelectedExpense] = useState<UnpaidExpense | null>(null);
 
   // Supplier selector state (for Anticipo)
   const [supSearch, setSupSearch] = useState("");
@@ -77,6 +84,7 @@ export default function PagosPage() {
                 financial_account_id: "",
                 reason: "np_payment",
                 purchase_order_id: String(np.id),
+                expense_id: "",
                 supplier_id: "",
                 amount: String(np.payment_pending),
                 notes: "",
@@ -114,6 +122,13 @@ export default function PagosPage() {
     setShowNpDropdown(false);
   }
 
+  function selectExpense(expense: UnpaidExpense) {
+    setSelectedExpense(expense);
+    setMovForm(prev => ({ ...prev, expense_id: String(expense.id), amount: String(expense.payment_pending) }));
+    setExpenseSearch("");
+    setShowExpenseDropdown(false);
+  }
+
   function selectSupplier(supplier: Supplier) {
     setSelectedSupplier(supplier);
     setMovForm(prev => ({ ...prev, supplier_id: String(supplier.id) }));
@@ -124,6 +139,12 @@ export default function PagosPage() {
   const filteredNPs = unpaidNPs.filter(np =>
     !npSearch || np.order_number?.toLowerCase().includes(npSearch.toLowerCase()) ||
     (np.provider_name || "").toLowerCase().includes(npSearch.toLowerCase())
+  );
+
+  const filteredExpenses = unpaidExpenses.filter(e =>
+    !expenseSearch || e.expense_number?.toLowerCase().includes(expenseSearch.toLowerCase()) ||
+    e.description?.toLowerCase().includes(expenseSearch.toLowerCase()) ||
+    (e.provider_name || "").toLowerCase().includes(expenseSearch.toLowerCase())
   );
 
   const filteredSuppliers = suppliers.filter(s =>
@@ -137,6 +158,7 @@ export default function PagosPage() {
     if (!movForm.financial_account_id || !amount) { alert("Completá cuenta y monto"); return; }
     if (amount < 0) { alert("El monto no puede ser negativo"); return; }
     if (movForm.reason === "np_payment" && !movForm.purchase_order_id) { alert("Seleccioná una NP"); setSaving(false); return; }
+    if (movForm.reason === "expense_payment" && !movForm.expense_id) { alert("Seleccioná un gasto"); setSaving(false); return; }
     if (movForm.reason === "advance" && !movForm.supplier_id) { alert("Seleccioná un proveedor"); setSaving(false); return; }
     setSaving(true);
     try {
@@ -147,6 +169,7 @@ export default function PagosPage() {
         type: "out",
         reason: movForm.reason || "other_out",
         purchase_order_id: movForm.purchase_order_id ? Number(movForm.purchase_order_id) : undefined,
+        expense_id: movForm.expense_id ? Number(movForm.expense_id) : undefined,
         supplier_id: movForm.supplier_id ? Number(movForm.supplier_id) : undefined,
         amount: amount,
         notes: movForm.notes || undefined,
@@ -162,10 +185,12 @@ export default function PagosPage() {
         });
       }
       setShowMovForm(false);
-      setMovForm({ financial_account_id: "", reason: "np_payment", purchase_order_id: "", supplier_id: "", amount: "", notes: "" });
+      setMovForm({ financial_account_id: "", reason: "np_payment", purchase_order_id: "", expense_id: "", supplier_id: "", amount: "", notes: "" });
       setSelectedNp(null);
+      setSelectedExpense(null);
       setSelectedSupplier(null);
       setNpSearch("");
+      setExpenseSearch("");
       setSupSearch("");
       setRefreshKey(k => k + 1);
     } catch (e: any) { alert(e?.message || e?.response?.data?.error || "Error"); }
@@ -176,19 +201,29 @@ export default function PagosPage() {
     fetchJson<UnpaidNP[]>("/purchase-orders/unpaid").then(setUnpaidNPs).catch(console.error);
   }
 
+  function loadUnpaidExpenses() {
+    fetchJson<UnpaidExpense[]>("/expenses?period=all")
+      .then(list => setUnpaidExpenses(list.filter(e => Number(e.payment_pending || 0) > 0)))
+      .catch(console.error);
+  }
+
   function openMovForm() {
     if (!hasOpenCashSession) {
       alert("Necesitás abrir una caja antes de registrar un pago");
       return;
     }
     setSelectedNp(null);
+    setSelectedExpense(null);
     setSelectedSupplier(null);
     setNpSearch("");
+    setExpenseSearch("");
     setSupSearch("");
-    setMovForm({ financial_account_id: "", reason: "", purchase_order_id: "", supplier_id: "", amount: "", notes: "" });
+    setMovForm({ financial_account_id: "", reason: "", purchase_order_id: "", expense_id: "", supplier_id: "", amount: "", notes: "" });
     setUnpaidNPs([]);
+    setUnpaidExpenses([]);
     setShowMovForm(true);
     loadUnpaidNPs();
+    loadUnpaidExpenses();
   }
 
   async function handleDeleteMovement(id: number) {
@@ -256,8 +291,8 @@ export default function PagosPage() {
       {loading ? <Loading /> : movements.length === 0 ? <Empty message="Sin pagos registrados" /> : viewMode === 'card' ? (
         <div style={{ display: "grid", gap: "6px" }}>
           {movements.map(m => {
-            const title = m.reason === "np_payment" ? "Pago de NP" : m.reason === "advance" ? "Anticipo a proveedor" : m.reason === "other_out" ? "Egreso" : "Otro";
-            const provider = m.provider_name || m.supplier_name || "Sin proveedor";
+            const title = m.reason === "np_payment" ? "Pago de NP" : m.reason === "expense_payment" ? "Pago de gasto" : m.reason === "advance" ? "Anticipo a proveedor" : m.reason === "other_out" ? "Egreso" : "Otro";
+            const provider = m.expense_description || m.provider_name || m.supplier_name || "Sin proveedor";
             return (
             <Card key={m.id}>
               <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
@@ -277,7 +312,7 @@ export default function PagosPage() {
                       </div>
                       <div style={{ fontSize: "13px", color: "#222", fontWeight: 700, marginBottom: "6px" }}>
                         {provider}
-                        {m.order_number ? ` · ${m.order_number}` : ""}
+                        {m.order_number ? ` · ${m.order_number}` : m.expense_number ? ` · ${m.expense_number}` : ""}
                       </div>
                     </div>
                     <button onClick={() => handleDeleteMovement(m.id)} style={{ background: "none", border: "none", color: "#e74c3c", cursor: "pointer", fontSize: "14px" }} title="Anular">🗑️</button>
@@ -285,6 +320,7 @@ export default function PagosPage() {
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "6px" }}>
                     <span style={{ fontSize: "11px", background: "#f6f6f6", color: "#666", padding: "3px 8px", borderRadius: "999px" }}>Cuenta: {m.account_name}</span>
                     {m.purchase_order_id && <span style={{ fontSize: "11px", background: "#fff5e6", color: "#8a5a00", padding: "3px 8px", borderRadius: "999px" }}>Imputado a NP #{m.purchase_order_id}</span>}
+                    {m.expense_id && <span style={{ fontSize: "11px", background: "#eef6ff", color: "#2563eb", padding: "3px 8px", borderRadius: "999px" }}>Imputado a gasto #{m.expense_id}</span>}
                   </div>
                   <div style={{ fontSize: "11px", color: "#999" }}>
                     {new Date(m.created_at).toLocaleString("es-AR")}
@@ -311,13 +347,13 @@ export default function PagosPage() {
             </thead>
             <tbody>
               {movements.map(m => {
-                const title = m.reason === "np_payment" ? "Pago de NP" : m.reason === "advance" ? "Anticipo" : m.reason === "other_out" ? "Egreso" : "Otro";
-                const provider = m.provider_name || m.supplier_name || "-";
+                const title = m.reason === "np_payment" ? "Pago de NP" : m.reason === "expense_payment" ? "Pago de gasto" : m.reason === "advance" ? "Anticipo" : m.reason === "other_out" ? "Egreso" : "Otro";
+                const provider = m.expense_description || m.provider_name || m.supplier_name || "-";
                 return (
                   <tr key={m.id} style={{ borderBottom: "1px solid #eee" }}>
                     <td style={{ padding: "8px 10px" }}>#{m.id}</td>
                     <td style={{ padding: "8px 10px", fontWeight: 600 }}>{title}</td>
-                    <td style={{ padding: "8px 10px" }}>{provider}{m.order_number ? ` · ${m.order_number}` : ""}</td>
+                    <td style={{ padding: "8px 10px" }}>{provider}{m.order_number ? ` · ${m.order_number}` : m.expense_number ? ` · ${m.expense_number}` : ""}</td>
                     <td style={{ padding: "8px 10px", color: "#e74c3c", fontWeight: 700 }}>-${Number(m.amount).toLocaleString("es-AR")}</td>
                     <td style={{ padding: "8px 10px" }}>{m.account_name}</td>
                     <td style={{ padding: "8px 10px", color: "#999" }}>{new Date(m.created_at).toLocaleString("es-AR")}</td>
@@ -351,11 +387,13 @@ export default function PagosPage() {
                   setMov("reason", value);
                   setSelectedNp(null);
                   setSelectedSupplier(null);
-                  setMovForm(prev => ({ ...prev, purchase_order_id: "", supplier_id: "", amount: "" }));
+                  setMovForm(prev => ({ ...prev, purchase_order_id: "", expense_id: "", supplier_id: "", amount: "" }));
                   if (value === "np_payment") loadUnpaidNPs();
+                  if (value === "expense_payment") loadUnpaidExpenses();
                 }} style={{ width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }}>
                   <option value="">Seleccionar motivo...</option>
                   <option value="np_payment">Pago de NP</option>
+                  <option value="expense_payment">Pago de gasto</option>
                   <option value="advance">Anticipo a proveedor</option>
                   <option value="other_out">Otro egreso</option>
                 </select>
@@ -388,6 +426,41 @@ export default function PagosPage() {
                               onMouseLeave={e => (e.currentTarget.style.background = "none")}>
                               <span><b>{np.order_number}</b> · {np.provider_name || "Sin proveedor"}</span>
                               <span style={{ color: "#e74c3c", fontWeight: 700 }}>${np.payment_pending.toLocaleString("es-AR")} pend.</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+
+              {/* Pago de Gasto */}
+              {movForm.reason === "expense_payment" && (
+                <div>
+                  <label style={{ fontSize: "12px", fontWeight: 700, color: "#666" }}>Gasto a pagar</label>
+                  {selectedExpense ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 12px", background: "#eef6ff", borderRadius: "8px", border: "1px solid #2563eb" }}>
+                      <span style={{ flex: 1, fontSize: "14px", fontWeight: 700 }}>
+                        {selectedExpense.expense_number} · {selectedExpense.description} · <span style={{ color: "#e74c3c" }}>${selectedExpense.payment_pending.toLocaleString("es-AR")} pend.</span>
+                      </span>
+                      <button onClick={() => { setSelectedExpense(null); setMovForm(prev => ({ ...prev, expense_id: "", amount: "" })); }} style={{ background: "none", border: "none", color: "#e74c3c", cursor: "pointer", fontSize: "13px" }}>✕</button>
+                    </div>
+                  ) : (
+                    <div style={{ position: "relative" }}>
+                      <input value={expenseSearch} onChange={e => { setExpenseSearch(e.target.value); setShowExpenseDropdown(true); }} onFocus={() => setShowExpenseDropdown(true)} placeholder="Buscar gasto por número, descripción o proveedor..." style={{ width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }} />
+                      {showExpenseDropdown && (
+                        <div style={{ position: "absolute", top: "100%", left: 0, right: 0, border: "1px solid #ddd", borderRadius: "8px", marginTop: "4px", maxHeight: "220px", overflowY: "auto", background: "#fff", zIndex: 10, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}>
+                          {filteredExpenses.length === 0 ? (
+                            <div style={{ padding: "12px", fontSize: "12px", color: "#999", textAlign: "center" }}>Sin gastos pendientes</div>
+                          ) : filteredExpenses.slice(0, 15).map(exp => (
+                            <div key={exp.id} onClick={() => selectExpense(exp)}
+                              style={{ padding: "10px 14px", cursor: "pointer", fontSize: "13px", borderBottom: "1px solid #f0", display: "flex", justifyContent: "space-between", gap: "10px" }}
+                              onMouseEnter={e => (e.currentTarget.style.background = "#f5f5f5")}
+                              onMouseLeave={e => (e.currentTarget.style.background = "none")}>
+                              <span><b>{exp.expense_number}</b> · {exp.description}</span>
+                              <span style={{ color: "#e74c3c", fontWeight: 700, whiteSpace: "nowrap" }}>${exp.payment_pending.toLocaleString("es-AR")}</span>
                             </div>
                           ))}
                         </div>
