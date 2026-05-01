@@ -8,7 +8,7 @@ type PaymentMethod = { id: number; name: string; is_personal: boolean; is_cash: 
 type Category = { id: number; name: string; is_active: boolean; auto_generate_sku: boolean; sku_prefix: string; sku_counter: number };
 type Brand = { id: number; name: string; is_imported: boolean; premium_level: number; is_active: boolean };
 type InputItem = { id: number; name: string; unit: string; default_cost: number; is_active: boolean };
-type SaleChannel = { id: number; name: string; is_active: boolean; sort_order: number; has_delivery: boolean };
+type SaleChannel = { id: number; name: string; is_active: boolean; sort_order: number; has_delivery: boolean; immediate_delivery: boolean };
 type OrderStatus = { id: number; name: string; color: string; sort_order: number; is_active: boolean };
 type PaymentStatus = { id: number; name: string; color: string; sort_order: number; is_active: boolean };
 type Entity = { id: number; name: string; notes?: string; is_active?: boolean };
@@ -295,7 +295,7 @@ function SaleChannelsABM() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<SaleChannel | null>(null);
-  const [form, setForm] = useState<{ name: string; sort_order: number; has_delivery?: boolean }>({ name: "", sort_order: 0, has_delivery: false });
+  const [form, setForm] = useState<{ name: string; sort_order: number; has_delivery?: boolean; immediate_delivery?: boolean }>({ name: "", sort_order: 0, has_delivery: false, immediate_delivery: false });
   const [saving, setSaving] = useState(false);
 
   function load() {
@@ -303,8 +303,8 @@ function SaleChannelsABM() {
     fetchJson<SaleChannel[]>("/sale-channels").then(setItems).catch(console.error).finally(() => setLoading(false));
   }
   useEffect(() => { load(); }, []);
-  function openNew() { setEditing(null); setForm({ name: "", sort_order: items.length + 1, has_delivery: false }); setShowForm(true); }
-  function openEdit(c: SaleChannel) { setEditing(c); setForm({ name: c.name, sort_order: c.sort_order || 0, has_delivery: !!c.has_delivery }); setShowForm(true); }
+  function openNew() { setEditing(null); setForm({ name: "", sort_order: items.length + 1, has_delivery: false, immediate_delivery: false }); setShowForm(true); }
+  function openEdit(c: SaleChannel) { setEditing(c); setForm({ name: c.name, sort_order: c.sort_order || 0, has_delivery: !!c.has_delivery, immediate_delivery: !!c.immediate_delivery }); setShowForm(true); }
   async function handleSave() {
     if (!form.name.trim()) return;
     setSaving(true);
@@ -319,6 +319,8 @@ function SaleChannelsABM() {
     return (
       <div key={c.id} style={{ padding: "5px 0", borderBottom: "1px solid #f5", fontSize: "12px", display: "flex", alignItems: "center", gap: "6px" }}>
         <span style={{ flex: 1, fontWeight: 600 }}>{c.name}</span>
+        {c.has_delivery && <span title="Genera entrega" style={{ fontSize: "11px", color: "#27ae60" }}>🚚</span>}
+        {c.immediate_delivery && <span title="Entrega inmediata" style={{ fontSize: "11px", color: "#2980b9" }}>⚡</span>}
         <IconButton variant="ghost" title="Editar" onClick={() => openEdit(c)}>✏️</IconButton>
         <IconButton variant="danger" title="Eliminar" onClick={() => remove(c.id)}>🗑️</IconButton>
       </div>
@@ -335,6 +337,11 @@ function SaleChannelsABM() {
                 <input type="checkbox" checked={form.has_delivery} onChange={e => setForm((prev) => ({ ...prev, has_delivery: e.target.checked }))}
                   style={{ width: "18px", height: "18px", accentColor: "#1a1a2e", cursor: "pointer" }} />
                 <span style={{ fontWeight: 600 }}>🚚 Genera entregas automáticas</span>
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "13px", cursor: "pointer" }}>
+                <input type="checkbox" checked={form.immediate_delivery} onChange={e => setForm((prev) => ({ ...prev, immediate_delivery: e.target.checked }))}
+                  style={{ width: "18px", height: "18px", accentColor: "#1a1a2e", cursor: "pointer" }} />
+                <span style={{ fontWeight: 600 }}>⚡ Entrega inmediata / nace como entregado</span>
               </label>
               <div style={{ display: "flex", gap: "10px", marginTop: "8px" }}>
                 <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "10px", borderRadius: "10px", border: "2px solid #e0e0e0", background: "transparent", color: "#666", cursor: "pointer", fontWeight: 600, fontSize: "13px" }}>Cancelar</button>

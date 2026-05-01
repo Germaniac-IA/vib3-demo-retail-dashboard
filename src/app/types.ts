@@ -72,6 +72,7 @@ export type Order = {
   created_at: string;
   delivered_date?: string;
   sale_channel_has_delivery?: boolean;
+  immediate_delivery?: boolean;
 };
 
 export type OrderDetail = {
@@ -117,6 +118,7 @@ export type SaleChannel = {
   is_active: boolean;
   sort_order: number;
   has_delivery: boolean;
+  immediate_delivery: boolean;
 };
 
 export type OrderStatus = {

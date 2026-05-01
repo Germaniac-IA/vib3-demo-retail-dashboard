@@ -72,13 +72,29 @@ export default function VentasPage() {
     setShowStatusModal(true);
   }
 
-  function doSaveStatus(newStatusId: number) {
+  async function updateOrderStatus(orderId: number, newStatusId: number) {
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
-    fetch(`${API}/orders/${statusTargetId}`, {
+    const r = await fetch(`${API}/orders/${orderId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
       body: JSON.stringify({ order_status_id: newStatusId }),
-    }).then(r => { if (!r.ok) throw new Error('status ' + r.status); setShowStatusModal(false); load(); }).catch(e => alert('Error: ' + e));
+    });
+    if (!r.ok) throw new Error('status ' + r.status);
+  }
+
+  function doSaveStatus(newStatusId: number) {
+    updateOrderStatus(statusTargetId, newStatusId)
+      .then(() => { setShowStatusModal(false); load(); })
+      .catch(e => alert('Error: ' + e));
+  }
+
+  async function markDelivered(orderId: number) {
+    const delivered = orderStatuses.find(s => s.name?.toLowerCase() === "entregado");
+    if (!delivered) { alert('No encontré un estado llamado Entregado'); return; }
+    try {
+      await updateOrderStatus(orderId, delivered.id);
+      load();
+    } catch (e) { alert('Error: ' + e); }
   }
 
   function load() {
@@ -330,10 +346,14 @@ function handleExportExcel() {
                       style={{ padding: "5px 8px", borderRadius: "6px", border: "1px solid #ddd", background: "#fff", cursor: "pointer", fontSize: "12px" }}>
                       👁️
                     </button>
-                    {o.sale_channel_has_delivery === true && (
-                      <button onClick={() => openStatusModal(o.id)} title="Editar estado"
-                        style={{ padding: "5px 8px", borderRadius: "6px", border: "1px solid #ddd", background: "#fff", cursor: "pointer", fontSize: "12px" }}>
-                        🚚
+                    <button onClick={() => openStatusModal(o.id)} title="Editar estado"
+                      style={{ padding: "5px 8px", borderRadius: "6px", border: "1px solid #ddd", background: "#fff", cursor: "pointer", fontSize: "12px" }}>
+                      🚚
+                    </button>
+                    {o.order_status_name?.toLowerCase() !== "entregado" && (
+                      <button onClick={() => markDelivered(o.id)} title="Marcar entregado"
+                        style={{ padding: "5px 8px", borderRadius: "6px", border: "1px solid #27ae60", background: "#f0fff4", cursor: "pointer", fontSize: "12px" }}>
+                        ✅
                       </button>
                     )}
                     <button onClick={() => handleDelete(o.id, o.order_number)} title="Eliminar"
@@ -383,8 +403,10 @@ function handleExportExcel() {
                     {o.order_status_name && <Badge color={o.order_status_color || "#888"}>{o.order_status_name}</Badge>}
                   </td>
                   <td style={{ padding: "8px", textAlign: "center" }}>
-                    <button onClick={() => setDetailId(o.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "12px", padding: "2px 4px" }}>👁️</button>
-                    <button onClick={() => handleDelete(o.id, o.order_number)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "12px", padding: "2px 4px", color: "#e74c3c" }}>🗑️</button>
+                    <button onClick={() => setDetailId(o.id)} title="Ver detalle" style={{ background: "none", border: "none", cursor: "pointer", fontSize: "12px", padding: "2px 4px" }}>👁️</button>
+                    <button onClick={() => openStatusModal(o.id)} title="Editar estado" style={{ background: "none", border: "none", cursor: "pointer", fontSize: "12px", padding: "2px 4px" }}>🚚</button>
+                    {o.order_status_name?.toLowerCase() !== "entregado" && <button onClick={() => markDelivered(o.id)} title="Marcar entregado" style={{ background: "none", border: "none", cursor: "pointer", fontSize: "12px", padding: "2px 4px", color: "#27ae60" }}>✅</button>}
+                    <button onClick={() => handleDelete(o.id, o.order_number)} title="Eliminar" style={{ background: "none", border: "none", cursor: "pointer", fontSize: "12px", padding: "2px 4px", color: "#e74c3c" }}>🗑️</button>
                   </td>
                 </tr>
               ))}
