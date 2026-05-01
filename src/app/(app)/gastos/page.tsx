@@ -12,6 +12,7 @@ type Period = "today" | "week" | "month" | "custom";
 
 export default function GastosPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [calendarExpenses, setCalendarExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [providers, setProviders] = useState<Provider[]>([]);
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
@@ -31,10 +32,11 @@ export default function GastosPage() {
     const qs = period === "custom" && customFrom && customTo ? `?period=custom&from=${customFrom}&to=${customTo}` : `?period=${period}`;
     Promise.all([
       fetchJson<Expense[]>("/expenses" + qs),
+      fetchJson<Expense[]>("/expenses?period=all"),
       fetchJson<Category[]>("/expense-categories"),
       fetchJson<Provider[]>("/providers"),
       fetchJson<PaymentMethod[]>("/payment-methods"),
-    ]).then(([e,c,p,m]) => { setExpenses(e); setCategories(c); setProviders(p); setMethods(m); })
+    ]).then(([e, cal, c, p, m]) => { setExpenses(e); setCalendarExpenses(cal); setCategories(c); setProviders(p); setMethods(m); })
       .catch(console.error).finally(() => setLoading(false));
   }
   useEffect(() => { load(); }, [period, customFrom, customTo]);
@@ -71,6 +73,25 @@ export default function GastosPage() {
   const total = expenses.reduce((s,e)=>s+Number(e.total||0),0);
   const paid = expenses.reduce((s,e)=>s+Number(e.payment_paid||0),0);
   const pending = expenses.reduce((s,e)=>s+Number(e.payment_pending||0),0);
+  const todayKey = new Date().toISOString().slice(0,10);
+  const dueExpenses = calendarExpenses
+    .filter(e => e.due_date && Number(e.payment_pending || 0) > 0)
+    .sort((a,b) => String(a.due_date).localeCompare(String(b.due_date)));
+  const overdue = dueExpenses.filter(e => String(e.due_date).slice(0,10) < todayKey);
+  const upcoming = dueExpenses.filter(e => String(e.due_date).slice(0,10) >= todayKey).slice(0, 12);
+  const dueByDate = dueExpenses.reduce((acc, e) => {
+    const k = String(e.due_date).slice(0,10);
+    if (!acc[k]) acc[k] = [];
+    acc[k].push(e);
+    return acc;
+  }, {} as Record<string, Expense[]>);
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  const calendarDays = Array.from({ length: 35 }, (_, i) => {
+    const d = new Date(monthStart);
+    d.setDate(1 - monthStart.getDay() + i);
+    return d;
+  });
 
   return <div>
     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
@@ -83,6 +104,67 @@ export default function GastosPage() {
       <Card><div style={{fontSize:12,color:"#888"}}>Pagado</div><strong style={{color:"#27ae60"}}>${paid.toLocaleString("es-AR")}</strong></Card>
       <Card><div style={{fontSize:12,color:"#888"}}>Pendiente</div><strong style={{color:"#f39c12"}}>${pending.toLocaleString("es-AR")}</strong></Card>
     </div>
+
+
+
+    <Card style={{ marginBottom: 14 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:12, flexWrap:"wrap", marginBottom:12 }}>
+        <div>
+          <h3 style={{ margin:"0 0 2px", fontSize:16 }}>🗓️ Calendario de pagos</h3>
+          <p style={{ margin:0, fontSize:12, color:"#888" }}>Gastos pendientes con fecha de vencimiento.</p>
+        </div>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+          <span style={{ fontSize:12, color:overdue.length ? "#e74c3c" : "#888", fontWeight:700 }}>Vencidos: {overdue.length}</span>
+          <span style={{ fontSize:12, color:"#f39c12", fontWeight:700 }}>Próximos: {upcoming.length}</span>
+        </div>
+      </div>
+
+      {dueExpenses.length === 0 ? (
+        <div style={{ fontSize:13, color:"#888", padding:"8px 0" }}>No hay gastos pendientes con vencimiento.</div>
+      ) : (
+        <div style={{ display:"grid", gridTemplateColumns:"minmax(260px, 1.2fr) minmax(260px, .8fr)", gap:14 }}>
+          <div style={{ overflowX:"auto" }}>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(7, minmax(42px, 1fr))", gap:6, minWidth:360 }}>
+              {["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"].map(d => <div key={d} style={{ fontSize:11, color:"#888", textAlign:"center", fontWeight:700 }}>{d}</div>)}
+              {calendarDays.map(day => {
+                const key = day.toISOString().slice(0,10);
+                const items = dueByDate[key] || [];
+                const isCurrentMonth = day.getMonth() === monthStart.getMonth();
+                const isToday = key === todayKey;
+                const amount = items.reduce((sum,e)=>sum+Number(e.payment_pending||0),0);
+                return <div key={key} style={{ minHeight:72, border:"1px solid #eee", borderRadius:10, padding:6, background:isToday?"#eef6ff":isCurrentMonth?"#fff":"#fafafa", opacity:isCurrentMonth?1:.45 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                    <span style={{ fontSize:12, fontWeight:isToday?800:600, color:isToday?"#2563eb":"#444" }}>{day.getDate()}</span>
+                    {items.length > 0 && <span style={{ fontSize:10, background:key < todayKey ? "#fee2e2" : "#fff7ed", color:key < todayKey ? "#dc2626" : "#d97706", borderRadius:999, padding:"1px 5px" }}>{items.length}</span>}
+                  </div>
+                  {items.length > 0 && <button onClick={() => openPay(items[0])} title="Pagar primer vencimiento del día" style={{ marginTop:6, width:"100%", border:"none", borderRadius:8, background:key < todayKey ? "#fee2e2" : "#fff7ed", color:key < todayKey ? "#dc2626" : "#d97706", fontSize:11, fontWeight:700, cursor:"pointer", padding:"4px 3px" }}>${amount.toLocaleString("es-AR")}</button>}
+                </div>;
+              })}
+            </div>
+          </div>
+          <div>
+            <h4 style={{ margin:"0 0 8px", fontSize:14 }}>Próximos vencimientos</h4>
+            <div style={{ display:"flex", flexDirection:"column", gap:7, maxHeight:330, overflowY:"auto" }}>
+              {[...overdue, ...upcoming].slice(0, 12).map(e => {
+                const k = String(e.due_date).slice(0,10);
+                const expired = k < todayKey;
+                return <div key={e.id} style={{ border:"1px solid #eee", borderLeft:`4px solid ${expired ? "#e74c3c" : "#f39c12"}`, borderRadius:10, padding:"8px 10px", background:"#fff" }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", gap:8 }}>
+                    <strong style={{ fontSize:13 }}>{e.expense_number}</strong>
+                    <span style={{ fontSize:11, color:expired?"#e74c3c":"#f39c12", fontWeight:700 }}>{new Date(k).toLocaleDateString("es-AR")}</span>
+                  </div>
+                  <div style={{ fontSize:12, color:"#555", marginTop:2 }}>{e.description}</div>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:5 }}>
+                    <span style={{ fontSize:12, color:"#888" }}>{e.provider_name || e.category_name || "Sin proveedor"}</span>
+                    <button onClick={() => openPay(e)} style={{ border:"1px solid #27ae60", background:"#f0fff4", color:"#166534", borderRadius:7, padding:"4px 8px", fontSize:12, fontWeight:700, cursor:"pointer" }}>${Number(e.payment_pending).toLocaleString("es-AR")}</button>
+                  </div>
+                </div>;
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </Card>
 
     <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:12 }}>
       {(["today","week","month"] as Period[]).map(p => <button key={p} onClick={()=>setPeriod(p)} style={{padding:"6px 12px",borderRadius:8,border:"none",background:period===p?"#1a1a2e":"#eee",color:period===p?"#fff":"#333",cursor:"pointer"}}>{p==="today"?"Hoy":p==="week"?"7 días":"30 días"}</button>)}
