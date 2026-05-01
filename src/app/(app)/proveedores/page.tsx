@@ -56,6 +56,7 @@ export default function ProveedoresPage() {
   const [saving, setSaving] = useState(false);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "with-contact" | "with-tax" | "with-email">("all");
+  const [copied, setCopied] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Provider | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -90,6 +91,13 @@ export default function ProveedoresPage() {
     withTax: providers.filter((p) => Boolean(p.tax_id)).length,
     withEmail: providers.filter((p) => Boolean(p.email)).length,
   }), [providers]);
+
+  function copyTable() {
+    const h = ["Nombre","Razon social","CUIT","Contacto","Telefono","WhatsApp","Email","Direccion","Notas"];
+    const r = filtered.map(x => [x.name||"",x.business_name||"",x.tax_id||"",x.contact_person||"",x.phone||"",x.whatsapp||"",x.email||"",x.address||"",x.notes||""]);
+    const tsv = [h.join("\t"),...r.map(x=>x.join("\t"))].join("\n");
+    navigator.clipboard.writeText(tsv).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2000)}).catch(()=>{const ta=document.createElement("textarea");ta.value=tsv;document.body.appendChild(ta);ta.select();document.execCommand("copy");document.body.removeChild(ta);setCopied(true);setTimeout(()=>setCopied(false),2000)});
+  }
 
   function openCreate() {
     setEditing(null);
@@ -165,7 +173,10 @@ export default function ProveedoresPage() {
       <Card>
         <CardHeader
           title="Gestión de proveedores"
-          action={<IconButton variant="primary" onClick={openCreate}>➕</IconButton>}
+          action={<div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
+            <IconButton variant={copied ? "primary" : "ghost"} title={copied ? "Copiado!" : "Copiar tabla"} onClick={copyTable}>{copied ? "✓" : "📋"}</IconButton>
+            <IconButton variant="primary" onClick={openCreate}>➕</IconButton>
+          </div>}
         />
 
         <div style={{ display: "grid", gap: 12 }}>
@@ -180,31 +191,43 @@ export default function ProveedoresPage() {
           </div>
 
           {loading ? <Loading /> : filtered.length === 0 ? <Empty message="No hay proveedores para mostrar" /> : (
-            <div style={{ display: "grid", gap: 10 }}>
-              {filtered.map((p) => (
-                <div key={p.id} style={{ border: "1px solid #ececec", borderRadius: 12, padding: 14, display: "grid", gap: 8 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start", flexWrap: "wrap" }}>
-                    <div>
-                      <div style={{ fontSize: 17, fontWeight: 800 }}>{p.name}</div>
-                      {p.business_name && <div style={{ color: "#666" }}>{p.business_name}</div>}
-                    </div>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <IconButton variant="secondary" onClick={() => openEdit(p)} title="Editar">✏️</IconButton>
-                      <IconButton variant="danger" onClick={() => handleDelete(p)} title="Eliminar">🗑️</IconButton>
-                    </div>
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 8, color: "#333", fontSize: 14 }}>
-                    <div><b>CUIT:</b> {p.tax_id || "—"}</div>
-                    <div><b>Contacto:</b> {p.contact_person || "—"}</div>
-                    <div><b>Tel:</b> {p.phone || "—"}</div>
-                    <div><b>WhatsApp:</b> {p.whatsapp || "—"}</div>
-                    <div><b>Email:</b> {p.email || "—"}</div>
-                    <div><b>Dirección:</b> {p.address || "—"}</div>
-                  </div>
-                  {p.notes && <div style={{ color: "#555" }}><b>Notas:</b> {p.notes}</div>}
-                </div>
-              ))}
-            </div>
+            <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+              <thead>
+                <tr style={{ textAlign: "left", borderBottom: "2px solid #e0e0e0", background: "#fafafa" }}>
+                  <th style={{padding:"10px 8px", fontSize:"12px", color:"#666", whiteSpace:"nowrap", fontWeight:700}}>Nombre</th>
+                  <th style={{padding:"10px 8px", fontSize:"12px", color:"#666", whiteSpace:"nowrap", fontWeight:700}}>Razon social</th>
+                  <th style={{padding:"10px 8px", fontSize:"12px", color:"#666", whiteSpace:"nowrap", fontWeight:700}}>CUIT</th>
+                  <th style={{padding:"10px 8px", fontSize:"12px", color:"#666", whiteSpace:"nowrap", fontWeight:700}}>Contacto</th>
+                  <th style={{padding:"10px 8px", fontSize:"12px", color:"#666", whiteSpace:"nowrap", fontWeight:700}}>Telefono</th>
+                  <th style={{padding:"10px 8px", fontSize:"12px", color:"#666", whiteSpace:"nowrap", fontWeight:700}}>WhatsApp</th>
+                  <th style={{padding:"10px 8px", fontSize:"12px", color:"#666", whiteSpace:"nowrap", fontWeight:700}}>Email</th>
+                  <th style={{padding:"10px 8px", fontSize:"12px", color:"#666", whiteSpace:"nowrap", fontWeight:700}}>Direccion</th>
+                  <th style={{padding:"10px 8px", fontSize:"12px", color:"#666", whiteSpace:"nowrap", fontWeight:700}}>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((p) => (
+                  <tr key={p.id} style={{ borderBottom: "1px solid #f1f1f1", cursor:"pointer" }} onClick={() => openEdit(p)}>
+                    <td style={{padding:"10px 8px", verticalAlign:"top"}}><strong>{p.name}</strong></td>
+                    <td style={{padding:"10px 8px", verticalAlign:"top"}}>{p.business_name || "-"}</td>
+                    <td style={{padding:"10px 8px", verticalAlign:"top"}}>{p.tax_id || "-"}</td>
+                    <td style={{padding:"10px 8px", verticalAlign:"top"}}>{p.contact_person || "-"}</td>
+                    <td style={{padding:"10px 8px", verticalAlign:"top"}}>{p.phone || "-"}</td>
+                    <td style={{padding:"10px 8px", verticalAlign:"top"}}>{p.whatsapp || "-"}</td>
+                    <td style={{padding:"10px 8px", verticalAlign:"top"}}>{p.email || "-"}</td>
+                    <td style={{padding:"10px 8px", verticalAlign:"top"}}>{p.address || "-"}</td>
+                    <td style={{padding:"10px 8px", verticalAlign:"top"}} onClick={(e) => e.stopPropagation()}>
+                      <div style={{ display: "flex", gap: "4px" }}>
+                        <IconButton variant="ghost" title="Editar" onClick={() => openEdit(p)}>✏️</IconButton>
+                        <IconButton variant="danger" title="Eliminar" onClick={() => handleDelete(p)}>🗑️</IconButton>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           )}
         </div>
       </Card>

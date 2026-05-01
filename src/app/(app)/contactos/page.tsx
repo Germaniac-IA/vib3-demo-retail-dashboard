@@ -27,7 +27,6 @@ type Contact = {
   entity_name?: string;
 };
 
-type SortField = "name" | "phone" | "email" | "location" | "condicion_iva" | "calificacion";
 
 export default function ContactosPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -38,9 +37,6 @@ export default function ContactosPage() {
   const [editing, setEditing] = useState<Contact | null>(null);
   const [condicionesIva, setCondicionesIva] = useState<CondicionIva[]>([]);
   const [search, setSearch] = useState("");
-  const [viewMode, setViewMode] = useState<"cards" | "list">("cards");
-  const [sortField, setSortField] = useState<SortField>("name");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [form, setForm] = useState({
     name: "", phone: "", email: "", address: "", location: "", notes: "",
     whatsapp: "", instagram: "", tiktok: "",
@@ -49,6 +45,7 @@ export default function ContactosPage() {
   });
   const [isMobile, setIsMobile] = useState(false);
   const [isTiny, setIsTiny] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [entities, setEntities] = useState<{id: number; name: string}[]>([]);
 
   useEffect(() => {
@@ -124,53 +121,39 @@ export default function ContactosPage() {
 
   const filteredContacts = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const base = !q ? contacts : contacts.filter((c) => (
-      (c.name || "").toLowerCase().includes(q) ||
-      (c.phone || "").toLowerCase().includes(q) ||
-      (c.whatsapp || "").toLowerCase().includes(q) ||
-      (c.email || "").toLowerCase().includes(q) ||
-      (c.location || "").toLowerCase().includes(q) ||
-      (c.address || "").toLowerCase().includes(q) ||
-      (c.instagram || "").toLowerCase().includes(q) ||
-      (c.tiktok || "").toLowerCase().includes(q) ||
-      (c.cuit || "").toLowerCase().includes(q) ||
-      (c.condicion_iibb || "").toLowerCase().includes(q) ||
-      (condicionesIva.find(x => x.value === c.condicion_iva)?.label || c.condicion_iva || "").toLowerCase().includes(q)
+    if (!q) return contacts;
+    return contacts.filter((c) => (
+      (c.name||"").toLowerCase().includes(q)||
+      (c.phone||"").toLowerCase().includes(q)||
+      (c.whatsapp||"").toLowerCase().includes(q)||
+      (c.email||"").toLowerCase().includes(q)||
+      (c.location||"").toLowerCase().includes(q)||
+      (c.address||"").toLowerCase().includes(q)||
+      (c.instagram||"").toLowerCase().includes(q)||
+      (c.tiktok||"").toLowerCase().includes(q)||
+      (c.cuit||"").toLowerCase().includes(q)||
+      (c.condicion_iibb||"").toLowerCase().includes(q)||
+      (condicionesIva.find(x=>x.value===c.condicion_iva)?.label||c.condicion_iva||"").toLowerCase().includes(q)
     ));
+  }, [contacts, search, condicionesIva]);
 
-    return [...base].sort((a, b) => {
-      let cmp = 0;
-      if (sortField === "name") cmp = (a.name || "").localeCompare(b.name || "");
-      else if (sortField === "phone") cmp = (a.phone || a.whatsapp || "").localeCompare(b.phone || b.whatsapp || "");
-      else if (sortField === "email") cmp = (a.email || "").localeCompare(b.email || "");
-      else if (sortField === "location") cmp = (a.location || "").localeCompare(b.location || "");
-      else if (sortField === "condicion_iva") cmp = (condicionesIva.find(x => x.value === a.condicion_iva)?.label || a.condicion_iva || "").localeCompare(condicionesIva.find(x => x.value === b.condicion_iva)?.label || b.condicion_iva || "");
-      else if (sortField === "calificacion") cmp = (Number(a.calificacion) || 0) - (Number(b.calificacion) || 0);
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-  }, [contacts, search, sortField, sortDir, condicionesIva]);
 
-  function toggleSort(field: SortField) {
-    if (sortField === field) setSortDir((d) => d === "asc" ? "desc" : "asc");
-    else {
-      setSortField(field);
-      setSortDir("asc");
-    }
+  function copyTable() {
+    const h = ["Nombre","Telefono","WhatsApp","Email","Direccion","Localidad","IG","TT","Notas","IVA","CUIT","IIBB","Score","Entidad"];
+    const r = filteredContacts.map(x => [x.name||"",x.phone||"",x.whatsapp||"",x.email||"",x.address||"",x.location||"",x.instagram||"",x.tiktok||"",x.notes||"",(condicionesIva.find(i=>i.value===x.condicion_iva)?.label||x.condicion_iva||""),x.cuit||"",x.condicion_iibb||"",String(x.calificacion||""),(x.entity_name||"")]);
+    const tsv = [h.join("\t"),...r.map(x=>x.join("\t"))].join("\n");
+    navigator.clipboard.writeText(tsv).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2000)}).catch(()=>{const ta=document.createElement("textarea");ta.value=tsv;document.body.appendChild(ta);ta.select();document.execCommand("copy");document.body.removeChild(ta);setCopied(true);setTimeout(()=>setCopied(false),2000)});
   }
 
-  function sortLabel(field: SortField, label: string) {
-    return `${label}${sortField === field ? (sortDir === "asc" ? " ↑" : " ↓") : ""}`;
-  }
+  const thStyle = { padding: "10px 8px", fontSize: "12px", color: "#666", whiteSpace: "nowrap" };
+  const tdStyle = { padding: "10px 8px", verticalAlign: "top" };
 
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
         <PageTitle>👥 Contactos</PageTitle>
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-            <IconButton variant={viewMode === "cards" ? "primary" : "ghost"} title="Vista tarjetas" onClick={() => setViewMode("cards")}>▦</IconButton>
-            <IconButton variant={viewMode === "list" ? "primary" : "ghost"} title="Vista lista" onClick={() => setViewMode("list")}>☰</IconButton>
-          </div>
+          <IconButton variant={copied ? "primary" : "ghost"} title={copied ? "Copiado!" : "Copiar tabla"} onClick={copyTable}>{copied ? "✓" : "📋"}</IconButton>
           <IconButton variant="primary" onClick={openNew}>+</IconButton>
         </div>
       </div>
@@ -261,79 +244,58 @@ export default function ContactosPage() {
 
       {loading ? <Loading /> : filteredContacts.length === 0 ? (
         <Empty message="Sin contactos" />
-      ) : viewMode === "cards" ? (
-        <div style={{ display: "grid", gap: "10px" }}>
-          {filteredContacts.map((c) => (
-            <Card key={c.id} style={{ cursor: "pointer" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                <div style={{ flex: 1 }} onClick={() => openEdit(c)}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
-                    <span style={{ fontWeight: 700, fontSize: "15px" }}>{c.name || "Sin nombre"}</span>
-                    {c.calificacion > 0 && (
-                      <span style={{ fontSize: "11px", background: c.calificacion >= 7 ? "#27ae6022" : c.calificacion >= 4 ? "#f39c1215" : "#e74c3c22", color: c.calificacion >= 7 ? "#27ae60" : c.calificacion >= 4 ? "#f39c12" : "#e74c3c", padding: "2px 6px", borderRadius: "8px" }}>
-                        ★ {c.calificacion}
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", fontSize: "13px", color: "#666" }}>
-                    {c.phone && <span>📞 {c.phone}</span>}
-                    {c.whatsapp && <span>💬 {c.whatsapp}</span>}
-                    {c.email && <span>✉️ {c.email}</span>}
-                    {c.location && <span>📍 {c.location}</span>}
-                  </div>
-                  <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", fontSize: "12px", color: "#888", marginTop: "4px" }}>
-                    {c.instagram && <span>📷 @{c.instagram.replace('@', '')}</span>}
-                    {c.tiktok && <span>🎵 @{c.tiktok.replace('@', '')}</span>}
-                    {c.condicion_iva && <span>🏛️ {condicionesIva.find(x => x.value === c.condicion_iva)?.label || c.condicion_iva}</span>}
-                    {(c as any).entity_name && <span style={{ fontSize: "11px", background: "#e3f2fd", color: "#1565c0", padding: "2px 6px", borderRadius: "6px" }}>🏢 {(c as any).entity_name}</span>}
-                    {c.cuit && <span>🔢 {c.cuit}</span>}
-                  </div>
-                </div>
-                <div style={{ display: "flex", gap: "8px", flexShrink: 0 }}>
-                  <button onClick={(e) => { e.stopPropagation(); openEdit(c); }} style={{ background: "none", border: "1px solid #ddd", borderRadius: "8px", cursor: "pointer", padding: "6px 10px", fontSize: "13px" }}>✏️</button>
-                  <button onClick={(e) => { e.stopPropagation(); handleDelete(c.id); }} style={{ background: "none", border: "1px solid #e74c3c", borderRadius: "8px", cursor: "pointer", padding: "6px 10px", fontSize: "13px" }}>🗑️</button>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
       ) : (
-        <div style={{ border: "1px solid #eee", borderRadius: "12px", overflow: "hidden", background: "#fff" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1.1fr 1.2fr 1fr 1.3fr 90px 90px", gap: "0", background: "#f8f8f8", padding: "8px 12px", fontSize: "11px", fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "1px", borderBottom: "1px solid #eee" }}>
-            <div onClick={() => toggleSort("name")} style={{ cursor: "pointer" }}>{sortLabel("name", "Contacto")}</div>
-            <div onClick={() => toggleSort("phone")} style={{ cursor: "pointer" }}>{sortLabel("phone", "Teléfono")}</div>
-            <div onClick={() => toggleSort("email")} style={{ cursor: "pointer" }}>{sortLabel("email", "Email")}</div>
-            <div onClick={() => toggleSort("location")} style={{ cursor: "pointer" }}>{sortLabel("location", "Localidad")}</div>
-            <div onClick={() => toggleSort("condicion_iva")} style={{ cursor: "pointer" }}>{sortLabel("condicion_iva", "IVA")}</div>
-            <div onClick={() => toggleSort("calificacion")} style={{ cursor: "pointer" }}>{sortLabel("calificacion", "Score")}</div>
-            <div>Acciones</div>
+        <Card>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+              <thead>
+                <tr style={{ textAlign: "left", borderBottom: "2px solid #e0e0e0", background: "#fafafa" }}>
+                  <th style={{...thStyle, cursor:"default", fontWeight:700}}>Nombre</th>
+                  <th style={{...thStyle, cursor:"default", fontWeight:700}}>Telefono</th>
+                  <th style={{...thStyle, cursor:"default", fontWeight:700}}>WhatsApp</th>
+                  <th style={{...thStyle, cursor:"default", fontWeight:700}}>Email</th>
+                  <th style={{...thStyle, cursor:"default", fontWeight:700}}>Direccion</th>
+                  <th style={{...thStyle, cursor:"default", fontWeight:700}}>Localidad</th>
+                  <th style={{...thStyle, cursor:"default", fontWeight:700}}>IG</th>
+                  <th style={{...thStyle, cursor:"default", fontWeight:700}}>TT</th>
+                  <th style={{...thStyle, cursor:"default", fontWeight:700}}>IVA</th>
+                  <th style={{...thStyle, cursor:"default", fontWeight:700}}>CUIT</th>
+                  <th style={{...thStyle, cursor:"default", fontWeight:700}}>IIBB</th>
+                  <th style={{...thStyle, cursor:"default", fontWeight:700}}>Score</th>
+                  <th style={{...thStyle, cursor:"default", fontWeight:700}}>Entidad</th>
+                  <th style={{...thStyle, cursor:"default", fontWeight:700}}>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredContacts.map((ct) => (
+                  <tr key={ct.id} style={{ borderBottom: "1px solid #f1f1f1", cursor:"pointer" }} onClick={() => openEdit(ct)}>
+                    <td style={tdStyle}><strong>{ct.name || "-"}</strong></td>
+                    <td style={tdStyle}>{ct.phone || "-"}</td>
+                    <td style={tdStyle}>{ct.whatsapp || "-"}</td>
+                    <td style={tdStyle}>{ct.email || "-"}</td>
+                    <td style={tdStyle}>{ct.address || "-"}</td>
+                    <td style={tdStyle}>{ct.location || "-"}</td>
+                    <td style={tdStyle}>{ct.instagram ? "@" + ct.instagram.replace("@","") : "-"}</td>
+                    <td style={tdStyle}>{ct.tiktok ? "@" + ct.tiktok.replace("@","") : "-"}</td>
+                    <td style={tdStyle}>{condicionesIva.find(x => x.value === ct.condicion_iva)?.label || ct.condicion_iva || "-"}</td>
+                    <td style={tdStyle}>{ct.cuit || "-"}</td>
+                    <td style={tdStyle}>{ct.condicion_iibb || "-"}</td>
+                    <td style={{...tdStyle, textAlign:"center"}}>
+                      <span style={{ fontSize:"11px", background: ct.calificacion >= 7 ? "#27ae6022" : ct.calificacion >= 4 ? "#f39c1215" : "#e74c3c22", color: ct.calificacion >= 7 ? "#27ae60" : ct.calificacion >= 4 ? "#f39c12" : "#e74c3c", padding:"2px 6px", borderRadius:"8px" }}>★ {ct.calificacion || 0}</span>
+                    </td>
+                    <td style={tdStyle}>{ct.entity_name || "-"}</td>
+                    <td style={tdStyle} onClick={(e) => e.stopPropagation()}>
+                      <div style={{ display: "flex", gap: "4px" }}>
+                        <IconButton variant="ghost" title="Editar" onClick={() => openEdit(ct)}>✏️</IconButton>
+                        <IconButton variant="danger" title="Eliminar" onClick={() => handleDelete(ct.id)}>🗑️</IconButton>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-          {filteredContacts.map((c) => (
-            <div key={c.id} style={{ display: "grid", gridTemplateColumns: "1.5fr 1.1fr 1.2fr 1fr 1.3fr 90px 90px", gap: "0", padding: "12px", borderBottom: "1px solid #f5f5f5", alignItems: "center", fontSize: "13px" }}>
-              <div>
-                <div style={{ fontWeight: 700 }}>{c.name || "Sin nombre"}</div>
-                {(c.whatsapp || c.instagram || c.tiktok) && (
-                  <div style={{ fontSize: "11px", color: "#888", marginTop: "2px" }}>
-                    {[c.whatsapp ? "WA" : "", c.instagram ? "IG" : "", c.tiktok ? "TT" : ""].filter(Boolean).join(" · ")}
-                  </div>
-                )}
-              </div>
-              <div>{c.phone || c.whatsapp || "-"}</div>
-              <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.email || "-"}</div>
-              <div>{c.location || "-"}</div>
-              <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{condicionesIva.find(x => x.value === c.condicion_iva)?.label || c.condicion_iva || "-"}</div>
-              <div>
-                <span style={{ fontSize: "11px", background: c.calificacion >= 7 ? "#27ae6022" : c.calificacion >= 4 ? "#f39c1215" : "#e74c3c22", color: c.calificacion >= 7 ? "#27ae60" : c.calificacion >= 4 ? "#f39c12" : "#e74c3c", padding: "2px 6px", borderRadius: "8px" }}>
-                  ★ {c.calificacion || 0}
-                </span>
-              </div>
-              <div style={{ display: "flex", gap: "6px" }}>
-                <button onClick={() => openEdit(c)} style={{ background: "none", border: "1px solid #ddd", borderRadius: "8px", cursor: "pointer", padding: "6px 10px", fontSize: "13px" }}>✏️</button>
-                <button onClick={() => handleDelete(c.id)} style={{ background: "none", border: "1px solid #e74c3c", borderRadius: "8px", cursor: "pointer", padding: "6px 10px", fontSize: "13px" }}>🗑️</button>
-              </div>
-            </div>
-          ))}
-        </div>
+        </Card>
       )}
     </div>
   );

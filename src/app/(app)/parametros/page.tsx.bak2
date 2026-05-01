@@ -792,43 +792,25 @@ function AttributeValuesABM() {
 }
 
 
-const TABS = [
-  { key: "metodos", label: "💳 Métodos de Pago" },
-  { key: "categorias", label: "📂 Categorías" },
-  { key: "marcas", label: "🏷️ Marcas" },
-  { key: "canales", label: "📡 Canales de Venta" },
-  { key: "estados_venta", label: "🏁 Estados de Venta" },
-  { key: "estados_pago", label: "💰 Estados de Pago" },
-  { key: "insumos", label: "🧴 Insumos" },
-  { key: "atributos_tipos", label: "📏 Tipos de Atributo" },
-  { key: "atributos_valores", label: "📐 Valores de Atributo" },
-  { key: "entidades", label: "🏢 Entidades / Clubes" },
-];
-
 export default function ParametrosPage() {
-  const [activeTab, setActiveTab] = useState("metodos");
   return (
     <div>
       <PageTitle>⚙️ Parámetros</PageTitle>
-      <div style={{ display: "flex", gap: "4px", overflowX: "auto", whiteSpace: "nowrap", paddingBottom: "8px", marginBottom: "12px", scrollbarWidth: "thin" }}>
-        {TABS.map(t => (
-          <button key={t.key} onClick={() => setActiveTab(t.key)}
-            style={{ padding: "6px 14px", borderRadius: "8px", border: "none", background: activeTab === t.key ? "#1a1a2e" : "#f0f0f0", color: activeTab === t.key ? "#fff" : "#666", cursor: "pointer", fontSize: "12px", fontWeight: 700, flexShrink: 0 }}>
-            {t.label}
-          </button>
-        ))}
-      </div>
-      <div>
-        {activeTab === "metodos" && <PaymentMethodsABM />}
-        {activeTab === "categorias" && <CategoriesABM />}
-        {activeTab === "marcas" && <BrandsABM />}
-        {activeTab === "canales" && <SaleChannelsABM />}
-        {activeTab === "estados_venta" && <OrderStatusesABM />}
-        {activeTab === "estados_pago" && <PaymentStatusesABM />}
-        {activeTab === "insumos" && <InputItemsABM />}
-        {activeTab === "atributos_tipos" && <AttributeTypesABM />}
-        {activeTab === "atributos_valores" && <AttributeValuesABM />}
-        {activeTab === "entidades" && <EntitiesABM />}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "0 16px" }}>
+        <div>
+          <PaymentMethodsABM />
+          <CategoriesABM />
+          <BrandsABM />
+          <AttributeTypesABM />
+          <EntitiesABM />
+        </div>
+        <div>
+          <SaleChannelsABM />
+          <OrderStatusesABM />
+          <PaymentStatusesABM />
+          <InputItemsABM />
+          <AttributeValuesABM />
+        </div>
       </div>
     </div>
   );

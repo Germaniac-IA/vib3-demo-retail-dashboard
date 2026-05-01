@@ -26,7 +26,6 @@ export default function PagosPage() {
   const [movForm, setMovForm] = useState({ financial_account_id: "", reason: "", purchase_order_id: "", supplier_id: "", amount: "", notes: "" });
   const [saving, setSaving] = useState(false);
   const [hasOpenCashSession, setHasOpenCashSession] = useState(false);
-  const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
   const [deepLinkHandled, setDeepLinkHandled] = useState(false);
 
   // NP selector state
@@ -241,19 +240,9 @@ export default function PagosPage() {
         {!hasOpenCashSession && <div style={{ fontSize: "12px", color: "#e67e22", fontWeight: 700 }}>Abrí una caja para registrar pagos</div>}
         <button onClick={openMovForm} disabled={!hasOpenCashSession} title={!hasOpenCashSession ? "Necesitás abrir una caja primero" : ""} style={{ padding: "8px 16px", borderRadius: "8px", border: "none", background: hasOpenCashSession ? "#e74c3c" : "#bfc6cd", color: "#fff", cursor: hasOpenCashSession ? "pointer" : "not-allowed", fontSize: "13px", fontWeight: 700 }}>💸 Registrar Pago</button>
         <button onClick={handleExportExcel} style={{ padding: "8px 16px", borderRadius: "8px", border: "1px solid #ddd", background: "#fff", color: "#1a1a2e", cursor: "pointer", fontSize: "13px", fontWeight: 700 }}>📥 Excel</button>
-        <div style={{ display: "flex", gap: "4px", background: "#f0f0f0", padding: "3px", borderRadius: "8px", marginLeft: "auto" }}>
-          <button onClick={() => setViewMode('card')}
-            style={{ padding: "5px 12px", borderRadius: "6px", border: "none", background: viewMode === 'card' ? "#1a1a2e" : "transparent", color: viewMode === 'card' ? "#fff" : "#666", cursor: "pointer", fontSize: "12px", fontWeight: 700 }}>
-            📇 Tarjetas
-          </button>
-          <button onClick={() => setViewMode('list')}
-            style={{ padding: "5px 12px", borderRadius: "6px", border: "none", background: viewMode === 'list' ? "#1a1a2e" : "transparent", color: viewMode === 'list' ? "#fff" : "#666", cursor: "pointer", fontSize: "12px", fontWeight: 700 }}>
-            📋 Lista
-          </button>
-        </div>
       </div>
 
-      {loading ? <Loading /> : movements.length === 0 ? <Empty message="Sin pagos registrados" /> : viewMode === 'card' ? (
+      {loading ? <Loading /> : movements.length === 0 ? <Empty message="Sin pagos registrados" /> : (
         <div style={{ display: "grid", gap: "6px" }}>
           {movements.map(m => {
             const title = m.reason === "np_payment" ? "Pago de NP" : m.reason === "advance" ? "Anticipo a proveedor" : m.reason === "other_out" ? "Egreso" : "Otro";
@@ -294,41 +283,6 @@ export default function PagosPage() {
               </div>
             </Card>
           )})}
-        </div>
-      ) : (
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
-            <thead>
-              <tr style={{ background: "#f5f5f5", textAlign: "left" }}>
-                <th style={{ padding: "8px 10px", borderBottom: "2px solid #ddd", fontWeight: 700 }}>ID</th>
-                <th style={{ padding: "8px 10px", borderBottom: "2px solid #ddd", fontWeight: 700 }}>Motivo</th>
-                <th style={{ padding: "8px 10px", borderBottom: "2px solid #ddd", fontWeight: 700 }}>Proveedor</th>
-                <th style={{ padding: "8px 10px", borderBottom: "2px solid #ddd", fontWeight: 700 }}>Monto</th>
-                <th style={{ padding: "8px 10px", borderBottom: "2px solid #ddd", fontWeight: 700 }}>Cuenta</th>
-                <th style={{ padding: "8px 10px", borderBottom: "2px solid #ddd", fontWeight: 700 }}>Fecha</th>
-                <th style={{ padding: "8px 10px", borderBottom: "2px solid #ddd", fontWeight: 700 }}>Acción</th>
-              </tr>
-            </thead>
-            <tbody>
-              {movements.map(m => {
-                const title = m.reason === "np_payment" ? "Pago de NP" : m.reason === "advance" ? "Anticipo" : m.reason === "other_out" ? "Egreso" : "Otro";
-                const provider = m.provider_name || m.supplier_name || "-";
-                return (
-                  <tr key={m.id} style={{ borderBottom: "1px solid #eee" }}>
-                    <td style={{ padding: "8px 10px" }}>#{m.id}</td>
-                    <td style={{ padding: "8px 10px", fontWeight: 600 }}>{title}</td>
-                    <td style={{ padding: "8px 10px" }}>{provider}{m.order_number ? ` · ${m.order_number}` : ""}</td>
-                    <td style={{ padding: "8px 10px", color: "#e74c3c", fontWeight: 700 }}>-${Number(m.amount).toLocaleString("es-AR")}</td>
-                    <td style={{ padding: "8px 10px" }}>{m.account_name}</td>
-                    <td style={{ padding: "8px 10px", color: "#999" }}>{new Date(m.created_at).toLocaleString("es-AR")}</td>
-                    <td style={{ padding: "8px 10px" }}>
-                      <button onClick={() => handleDeleteMovement(m.id)} style={{ background: "none", border: "none", color: "#e74c3c", cursor: "pointer", fontSize: "13px" }} title="Anular">🗑️</button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
         </div>
       )}
 

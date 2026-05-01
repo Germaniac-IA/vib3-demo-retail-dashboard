@@ -7,7 +7,6 @@ import { Badge, Button, Card, Empty, IconButton, Input, Loading, PageTitle } fro
 import StatsCards from "../../components/shared/StatsCards";
 
 type LeadStatus = "new" | "contacted" | "waiting" | "qualified" | "converted" | "rejected";
-type ViewMode = "cards" | "list";
 type SortField = "name" | "source" | "status" | "last_message_at" | "interaction_count" | "assigned_to";
 
 type Lead = {
@@ -158,9 +157,6 @@ export default function LeadsPage() {
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [viewMode, setViewMode] = useState<ViewMode>("cards");
-  const [sortField, setSortField] = useState<SortField>("last_message_at");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Lead | null>(null);
   const [form, setForm] = useState<LeadForm>(emptyForm);
@@ -172,6 +168,7 @@ export default function LeadsPage() {
   const [interactionHandle, setInteractionHandle] = useState("");
   const [error, setError] = useState("");
   const [isMobile, setIsMobile] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 900);
@@ -383,40 +380,40 @@ export default function LeadsPage() {
     handles: unique(leads.map((lead) => lead.source_handle)),
   }), [leads]);
 
-  const filteredLeads = useMemo(() => {
+    const filteredLeads = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const base = leads.filter((lead) => {
+    return leads.filter((lead) => {
       if (statusFilter && lead.status !== statusFilter) return false;
       if (!q) return true;
       return [lead.name, lead.phone, lead.whatsapp, lead.email, lead.location, lead.address, lead.source, lead.source_channel, lead.source_handle, lead.notes, lead.last_message]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(q));
     });
+  }, [leads, search, statusFilter]);
 
-    const sorted = [...base].sort((a, b) => {
-      let cmp = 0;
-      if (sortField === "name") cmp = (a.name || "").localeCompare(b.name || "");
-      else if (sortField === "source") cmp = (a.source || a.source_channel || "").localeCompare(b.source || b.source_channel || "");
-      else if (sortField === "status") cmp = (a.status || "").localeCompare(b.status || "");
-      else if (sortField === "assigned_to") cmp = (a.assigned_to || "").localeCompare(b.assigned_to || "");
-      else if (sortField === "interaction_count") cmp = (Number(a.interaction_count) || 0) - (Number(b.interaction_count) || 0);
-      else if (sortField === "last_message_at") cmp = new Date(a.last_message_at || a.last_interaction_at || a.updated_at || a.created_at).getTime() - new Date(b.last_message_at || b.last_interaction_at || b.updated_at || b.created_at).getTime();
-      return sortDir === "asc" ? cmp : -cmp;
+  function copyTable() {
+    const headers = ["Nombre","Telefono","WhatsApp","Email","Origen","Canal","Handle","Localidad","Estado","Asignado","Interacciones","Ult. Mensaje","Fecha"];
+    const rows = filteredLeads.map(l => [
+      l.name || "", l.phone || "", l.whatsapp || "", l.email || "",
+      l.source || l.source_channel || "", l.source_channel || "", l.source_handle || "", l.location || "",
+      STATUS_OPTIONS.find(s => s.value === l.status)?.label || l.status, l.assigned_to || "",
+      String(l.interaction_count || "0"),
+      (l.last_message || "").replace(/\\n/g, " "), formatDateTime(l.last_message_at || l.last_interaction_at || l.updated_at)
+    ]);
+    const tsv = [headers.join("\t"), ...rows.map(r => r.join("\t"))].join("\n");
+    navigator.clipboard.writeText(tsv).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {
+      const ta = document.createElement("textarea");
+      ta.value = tsv;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     });
-
-    return sorted;
-  }, [leads, search, statusFilter, sortField, sortDir]);
-
-  function toggleSort(field: SortField) {
-    if (sortField === field) setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
-    else {
-      setSortField(field);
-      setSortDir(field === "name" || field === "source" || field === "status" || field === "assigned_to" ? "asc" : "desc");
-    }
-  }
-
-  function sortLabel(field: SortField, label: string) {
-    return `${label}${sortField === field ? sortDir === "asc" ? " ↑" : " ↓" : ""}`;
   }
 
   return (
@@ -424,10 +421,7 @@ export default function LeadsPage() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
         <PageTitle title="📍 Leads" />
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-            <IconButton variant={viewMode === "cards" ? "primary" : "ghost"} title="Vista tarjetas" onClick={() => setViewMode("cards")}>▦</IconButton>
-            <IconButton variant={viewMode === "list" ? "primary" : "ghost"} title="Vista lista" onClick={() => setViewMode("list")}>☰</IconButton>
-          </div>
+          <IconButton variant={copied ? "primary" : "ghost"} title={copied ? "Copiado!" : "Copiar tabla"} onClick={copyTable}>{copied ? "✓" : "📋"}</IconButton>
           <IconButton variant="primary" title="Nuevo lead" onClick={openNew}>+</IconButton>
         </div>
       </div>
@@ -447,89 +441,57 @@ export default function LeadsPage() {
         </div>
       </Card>
 
-      {loading ? <Loading /> : filteredLeads.length === 0 ? <Empty message="Sin leads registrados" /> : viewMode === "cards" ? (
-        <div style={{ display: "grid", gap: "10px" }}>
-          {filteredLeads.map((lead) => {
-            const statusMeta = STATUS_OPTIONS.find((option) => option.value === lead.status) || STATUS_OPTIONS[0];
-            return (
-              <Card key={lead.id} style={{ cursor: "pointer" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: "16px", flexDirection: isMobile ? "column" : "row" }}>
-                  <div style={{ flex: 1 }} onClick={() => openEdit(lead)}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginBottom: "6px" }}>
-                      <span style={{ fontWeight: 700, fontSize: "15px" }}>{lead.name || "Sin nombre"}</span>
-                      <Badge color={statusMeta.color}>{statusMeta.emoji} {statusMeta.label}</Badge>
-                      {lead.converted_contact_name ? <Badge color="#16a085">👤 {lead.converted_contact_name}</Badge> : null}
-                    </div>
-                    <div style={{ display: "flex", gap: "14px", flexWrap: "wrap", fontSize: "13px", color: "#666" }}>
-                      {lead.phone && <span>📞 {lead.phone}</span>}
-                      {lead.whatsapp && <span>💬 {lead.whatsapp}</span>}
-                      {lead.email && <span>✉️ {lead.email}</span>}
-                      {(lead.source_channel || lead.source) && <span>📡 {lead.source_channel || lead.source}</span>}
-                      {lead.source_handle && <span>👤 {lead.source_handle}</span>}
-                      {lead.assigned_to && <span>🧠 {lead.assigned_to}</span>}
-                    </div>
-                    {(lead.last_message || lead.notes) && <div style={{ marginTop: "8px", fontSize: "13px", color: "#555" }}>{lead.last_message || lead.notes}</div>}
-                    <div style={{ marginTop: "8px", display: "flex", gap: "12px", flexWrap: "wrap", fontSize: "12px", color: "#888" }}>
-                      <span>Último: {formatDateTime(lead.last_message_at || lead.last_interaction_at || lead.updated_at)}</span>
-                      <span>Interacciones: {lead.interaction_count || 0}</span>
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", flexDirection: isMobile ? "row" : "column", gap: "8px", minWidth: isMobile ? undefined : "180px" }}>
-                    <select value={lead.status} onChange={(e) => handleStatusChange(lead, e.target.value as LeadStatus)} style={{ ...inputStyle, minWidth: isMobile ? 0 : 180 }}>
-                      {STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                    </select>
-                    <Button variant="secondary" onClick={() => openEdit(lead)}>👁️</Button>
-                    {lead.status === "converted" ? (
-                      <Button onClick={() => handleDeconvert(lead)}>↩️</Button>
-                    ) : (
-                      <Button onClick={() => handleConvert(lead)}>✅</Button>
-                    )}
-                  </div>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
-      ) : (
+      {loading ? <Loading /> : filteredLeads.length === 0 ? <Empty message="Sin leads registrados" /> : (
         <Card>
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
               <thead>
-                <tr style={{ textAlign: "left", borderBottom: "1px solid #eee" }}>
-                  <th style={thStyle} onClick={() => toggleSort("name")}>{sortLabel("name", "Lead")}</th>
-                  <th style={thStyle} onClick={() => toggleSort("source")}>{sortLabel("source", "Origen")}</th>
-                  <th style={thStyle} onClick={() => toggleSort("status")}>{sortLabel("status", "Estado")}</th>
-                  <th style={thStyle} onClick={() => toggleSort("assigned_to")}>{sortLabel("assigned_to", "Asignado")}</th>
-                  <th style={thStyle} onClick={() => toggleSort("interaction_count")}>{sortLabel("interaction_count", "Interacciones")}</th>
-                  <th style={thStyle} onClick={() => toggleSort("last_message_at")}>{sortLabel("last_message_at", "Último mensaje")}</th>
-                  <th style={{ ...thStyle, cursor: "default" }}>Acciones</th>
+                <tr style={{ textAlign: "left", borderBottom: "2px solid #e0e0e0", background: "#fafafa" }}>
+                  <th style={{...thStyle, cursor:"default", fontWeight:700}}>Nombre</th>
+                  <th style={{...thStyle, cursor:"default", fontWeight:700}}>Teléfono</th>
+                  <th style={{...thStyle, cursor:"default", fontWeight:700}}>WhatsApp</th>
+                  <th style={{...thStyle, cursor:"default", fontWeight:700}}>Email</th>
+                  <th style={{...thStyle, cursor:"default", fontWeight:700}}>Origen</th>
+                  <th style={{...thStyle, cursor:"default", fontWeight:700}}>Canal</th>
+                  <th style={{...thStyle, cursor:"default", fontWeight:700}}>Handle</th>
+                  <th style={{...thStyle, cursor:"default", fontWeight:700}}>Localidad</th>
+                  <th style={{...thStyle, cursor:"default", fontWeight:700}}>Estado</th>
+                  <th style={{...thStyle, cursor:"default", fontWeight:700}}>Asignado</th>
+                  <th style={{...thStyle, cursor:"default", fontWeight:700}}>Interacc.</th>
+                  <th style={{...thStyle, cursor:"default", fontWeight:700}}>Ult. Mensaje</th>
+                  <th style={{...thStyle, cursor:"default", fontWeight:700}}>Fecha</th>
+                  <th style={{...thStyle, cursor:"default", fontWeight:700}}>Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredLeads.map((lead) => {
-                  const statusMeta = STATUS_OPTIONS.find((option) => option.value === lead.status) || STATUS_OPTIONS[0];
+                  const statusMeta = STATUS_OPTIONS.find((o) => o.value === lead.status) || STATUS_OPTIONS[0];
                   return (
-                    <tr key={lead.id} style={{ borderBottom: "1px solid #f1f1f1" }}>
+                    <tr key={lead.id} style={{ borderBottom: "1px solid #f1f1f1", cursor:"pointer" }} onClick={() => openEdit(lead)}>
+                      <td style={tdStyle}><strong>{lead.name || "-"}</strong></td>
+                      <td style={tdStyle}>{lead.phone || "-"}</td>
+                      <td style={tdStyle}>{lead.whatsapp || "-"}</td>
+                      <td style={tdStyle}>{lead.email || "-"}</td>
+                      <td style={tdStyle}>{lead.source || lead.source_channel || "-"}</td>
+                      <td style={tdStyle}>{lead.source_channel || "-"}</td>
+                      <td style={tdStyle}>{lead.source_handle || "-"}</td>
+                      <td style={tdStyle}>{lead.location || "-"}</td>
                       <td style={tdStyle}>
-                        <div style={{ fontWeight: 700 }}>{lead.name || "Sin nombre"}</div>
-                        <div style={{ color: "#777", fontSize: "12px" }}>{lead.whatsapp || lead.phone || lead.email || "Sin contacto"}</div>
+                        <Badge color={statusMeta.color}>{statusMeta.emoji} {statusMeta.label}</Badge>
+                        {lead.converted_contact_name && <div style={{fontSize:"11px",color:"#16a085"}}>➕{lead.converted_contact_name}</div>}
                       </td>
-                      <td style={tdStyle}>
-                        <div>{lead.source || "-"}</div>
-                        <div style={{ color: "#777", fontSize: "12px" }}>{lead.source_channel || "-"}</div>
-                      </td>
-                      <td style={tdStyle}><Badge color={statusMeta.color}>{statusMeta.emoji} {statusMeta.label}</Badge></td>
                       <td style={tdStyle}>{lead.assigned_to || "-"}</td>
-                      <td style={tdStyle}>{lead.interaction_count || 0}</td>
-                      <td style={tdStyle}>
-                        <div>{formatDateTime(lead.last_message_at || lead.last_interaction_at || lead.updated_at)}</div>
-                        <div style={{ color: "#777", fontSize: "12px", maxWidth: 240, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{lead.last_message || "-"}</div>
-                      </td>
-                      <td style={tdStyle}>
-                        <div style={{ display: "flex", gap: "6px" }}>
-                          <IconButton variant="secondary" title="Abrir" onClick={() => openEdit(lead)}>👁️</IconButton>
+                      <td style={{...tdStyle, textAlign:"center"}}>{lead.interaction_count || 0}</td>
+                      <td style={{...tdStyle, maxWidth:160, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{lead.last_message || "-"}</td>
+                      <td style={tdStyle}>{formatDateTime(lead.last_message_at || lead.last_interaction_at || lead.updated_at)}</td>
+                      <td style={tdStyle} onClick={(e) => e.stopPropagation()}>
+                        <div style={{ display: "flex", gap: "4px", alignItems:"center" }}>
+                          <select value={lead.status} onChange={(e) => handleStatusChange(lead, e.target.value as LeadStatus)}
+                            style={{...inputStyle, padding:"3px 5px", fontSize:"11px", minWidth:80}}>
+                            {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                          </select>
                           {lead.status === "converted" ? (
-                            <IconButton variant="primary" title="Desconvertir" onClick={() => handleDeconvert(lead)}>↩️</IconButton>
+                            <IconButton variant="secondary" title="Desconvertir" onClick={() => handleDeconvert(lead)}>↩️</IconButton>
                           ) : (
                             <IconButton variant="primary" title="Convertir" onClick={() => handleConvert(lead)}>✅</IconButton>
                           )}
@@ -542,9 +504,7 @@ export default function LeadsPage() {
             </table>
           </div>
         </Card>
-      )}
-
-      {modalOpen && (
+      )}{modalOpen && (
         <div onClick={(e) => e.target === e.currentTarget && closeModal()} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: isMobile ? "flex-start" : "center", justifyContent: "center", padding: isMobile ? "12px" : "24px", paddingTop: isMobile ? "24px" : "24px", zIndex: 1000, overflowY: "auto" }}>
           <div style={{ width: "min(1100px, 100%)", maxHeight: isMobile ? "none" : "92vh", overflow: "auto", background: "#fff", borderRadius: isMobile ? "16px" : "18px", padding: isMobile ? "16px" : "22px", boxShadow: "0 24px 70px rgba(0,0,0,0.25)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: isMobile ? "flex-start" : "center", marginBottom: "16px", gap: "12px", flexDirection: isMobile ? "column" : "row" }}>
