@@ -22,7 +22,7 @@ export const metadata: Metadata = {
   icons: {
     icon: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSyXddZg5oOVwo5DkTS9DrVOCKZumtqsUVCYQ&s",
   },
-  title: "VIB3 Demo Retail",
+  title: "VIB3 Retail",
   description: "Dashboard retail white-label by VIB3.ia",
 };
 

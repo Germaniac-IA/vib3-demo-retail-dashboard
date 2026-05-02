@@ -1,136 +1,83 @@
 "use client";
-
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { postJson } from "../lib";
 
-export default function HomePage() {
-  const router = useRouter();
-  useEffect(() => {
-    const saved = localStorage.getItem("theme");
-    if (saved) document.documentElement.setAttribute("data-theme", saved);
-  }, []);
+export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [theme, setTheme] = useState("dark");
+  const router = useRouter();
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      router.push("/negocio");
-    }
-  }, [router]);
+    const t = localStorage.getItem("theme");
+    if (t) setTheme(t as any);
+  }, []);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
-    setError("");
     setLoading(true);
+    setError("");
     try {
-      const res = await postJson<{ token: string; user: unknown }>("/auth/login", {
-        username,
-        password,
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
       });
-      localStorage.setItem("token", res.token);
-      localStorage.setItem("user", JSON.stringify(res.user));
-      router.push("/negocio");
-    } catch {
-      setError("Usuario o contraseña incorrectos");
+      const data = await res.json();
+      if (!res.ok || !data.token) {
+        setError(data.error || data.message || "Error");
+        setLoading(false);
+        return;
+      }
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user || {}));
+      router.push("/");
+    } catch (err: any) {
+      setError(err.message || "Error de conexión");
     } finally {
       setLoading(false);
     }
   }
 
+  const bg = theme === "dark" ? "linear-gradient(135deg, #0f0f1e 0%, #1a1a2e 50%, #0f0f1e 100%)" : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)";
+  const cardBg = theme === "dark" ? "#1a1a2e" : "#fff";
+  const textColor = theme === "dark" ? "#e2e8f0" : "#1a1a2e";
+  const muted = theme === "dark" ? "#888" : "#666";
+  const inputBg = theme === "dark" ? "#0f0f1e" : "#f8f9fa";
+  const inputBorder = theme === "dark" ? "2px solid #333" : "2px solid #e0e0e0";
+
   return (
-    <div className="login-wrapper" style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center"
-      }}>
-      <div className="login-box"
-        style={{
-          background: "#fff",
-          borderRadius: "16px",
-          padding: "40px",
-          width: "100%",
-          maxWidth: "380px",
-          boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
-        }}
-      >
-        <div style={{ textAlign: "center", marginBottom: "32px" }}>
-          <div style={{ fontSize: "32px", marginBottom: "8px" }}>🦫</div>
-          <h1 style={{ fontSize: "24px", fontWeight: 700, marginBottom: "4px" }}>Baver.Arg</h1>
-          <p style={{ color: "#888", fontSize: "14px" }}>Panel de control</p>
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: bg, padding: "20px" }}>
+      <div style={{ width: "100%", maxWidth: 420, background: cardBg, borderRadius: 24, padding: "40px 32px", boxShadow: "0 20px 60px rgba(0,0,0,0.3)", textAlign: "center" }}>
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ width: 80, height: 80, margin: "0 auto", borderRadius: "50%", background: "linear-gradient(135deg, #f97316 0%, #ef4444 100%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 42, boxShadow: "0 8px 24px rgba(249,115,22,0.3)" }}>
+            🦊
+          </div>
         </div>
-
-        <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-          <div>
-            <label style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "6px" }}>
-              Usuario
-            </label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-              style={{
-                width: "100%",
-                padding: "10px 14px",
-                border: "1px solid #ddd",
-                borderRadius: "8px",
-                fontSize: "14px",
-                boxSizing: "border-box",
-              }}
-            />
+        <h1 style={{ fontSize: 28, fontWeight: 800, color: textColor, margin: "12px 0 4px" }}>VIB3 Retail</h1>
+        <p style={{ fontSize: 14, color: muted, margin: "0 0 32px" }}>Dashboard comercial inteligente</p>
+        <form onSubmit={handleLogin} style={{ textAlign: "left" }}>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ fontSize: 13, fontWeight: 700, color: muted, display: "block", marginBottom: 6 }}>Usuario</label>
+            <input value={username} onChange={e => setUsername(e.target.value)} placeholder="Tu usuario"
+              style={{ width: "100%", padding: "12px 16px", borderRadius: 12, border: inputBorder, background: inputBg, color: textColor, fontSize: 14, outline: "none", boxSizing: "border-box" }} />
           </div>
-
-          <div>
-            <label style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "6px" }}>
-              Contraseña
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              style={{
-                width: "100%",
-                padding: "10px 14px",
-                border: "1px solid #ddd",
-                borderRadius: "8px",
-                fontSize: "14px",
-                boxSizing: "border-box",
-              }}
-            />
+          <div style={{ marginBottom: 24 }}>
+            <label style={{ fontSize: 13, fontWeight: 700, color: muted, display: "block", marginBottom: 6 }}>Contraseña</label>
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••"
+              style={{ width: "100%", padding: "12px 16px", borderRadius: 12, border: inputBorder, background: inputBg, color: textColor, fontSize: 14, outline: "none", boxSizing: "border-box" }} />
           </div>
-
-          {error && (
-            <div style={{ color: "#e74c3c", fontSize: "13px", textAlign: "center" }}>{error}</div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              padding: "12px",
-              background: loading ? "#ccc" : "#6c63ff",
-              color: "#fff",
-              border: "none",
-              borderRadius: "8px",
-              fontSize: "15px",
-              fontWeight: 600,
-              cursor: loading ? "not-allowed" : "pointer",
-              marginTop: "8px",
-            }}
-          >
-            {loading ? "Ingresando..." : "Entrar"}
+          {error && <div style={{ padding: "10px 14px", borderRadius: 10, background: "#fef2f2", color: "#dc2626", fontSize: 13, marginBottom: 16, textAlign: "center" }}>{error}</div>}
+          <button type="submit" disabled={loading}
+            style={{ width: "100%", padding: "14px", borderRadius: 12, border: "none", background: "linear-gradient(135deg, #f97316 0%, #ef4444 100%)", color: "#fff", fontSize: 16, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1 }}>
+            {loading ? "Ingresando..." : "Ingresar"}
           </button>
         </form>
-
-        <p style={{ textAlign: "center", fontSize: "12px", color: "#aaa", marginTop: "24px" }}>
-          Baver.Arg · {new Date().getFullYear()}
-        </p>
+        <div style={{ marginTop: 24, fontSize: 12, color: theme === "dark" ? "#555" : "#999" }}>
+          <span style={{ opacity: 0.6 }}>Powered by </span><span style={{ fontWeight: 700 }}>VIB3.ia</span>
+        </div>
       </div>
     </div>
   );
