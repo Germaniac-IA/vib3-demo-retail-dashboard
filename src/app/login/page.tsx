@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { postJson } from "../lib";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -20,13 +21,8 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.token) {
+      const data = await postJson<any>("/auth/login", { username, password });
+      if (!data.token) {
         setError(data.error || data.message || "Error");
         setLoading(false);
         return;

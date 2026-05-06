@@ -84,6 +84,9 @@ export default function DisenoPage() {
   const [copiedLink, setCopiedLink] = useState(false);
   const [newOrderId, setNewOrderId] = useState("");
   const [createLoading, setCreateLoading] = useState(false);
+  const [pendingOrders, setPendingOrders] = useState<any[]>([]);
+  const [showPending, setShowPending] = useState(false);
+  const [loadingPending, setLoadingPending] = useState(false);
     const [designItems, setDesignItems] = useState<DesignItem[]>([]);
   const [showItems, setShowItems] = useState(false);
   const [savingItems, setSavingItems] = useState(false);
@@ -94,6 +97,11 @@ export default function DisenoPage() {
   const [recovering, setRecovering] = useState(false);
   const [recoverMsg, setRecoverMsg] = useState("");
   const [itemDraft, setItemDraft] = useState({ item_number: "", head: "", center: "", footer: "", talle: "" });  const [createError, setCreateError] = useState("");
+  const [pendingEntities, setPendingEntities] = useState<any[]>([]);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [selectedPendingOrder, setSelectedPendingOrder] = useState<any>(null);
+  const [pickableTemplates, setPickableTemplates] = useState<any[]>([]);
+  const [allEntities, setAllEntities] = useState<any[]>([]);
 
   const loadRequests = useCallback(async () => {
     try {
@@ -108,6 +116,19 @@ export default function DisenoPage() {
 
   useEffect(() => { loadRequests(); }, [loadRequests]);
   useEffect(() => { if (selected) loadDesignItems(selected.id); }, [selected]);
+
+  async function loadPendingOrders() {
+    setLoadingPending(true);
+    try {
+      const data = await getJson<any[]>("/design-requests/pending-orders");
+      setPendingOrders(data);
+      setShowPending(true);
+    } catch (e) {
+      console.error("Error loading pending orders:", e);
+    } finally {
+      setLoadingPending(false);
+    }
+  }
 
   
   async function loadDesignItems(drId: number) {
@@ -326,23 +347,175 @@ export default function DisenoPage() {
       <div style={{ width: 380, borderRight: "1px solid #eee", overflowY: "auto", display: "flex", flexDirection: "column" }}>
         <div style={{ padding: "16px 20px", borderBottom: "1px solid #eee", background: "#f9f9f9" }}>
           <h2 style={{ margin: "0 0 12px", fontSize: 18, fontWeight: 800 }}>🎨 Módulo de Diseño</h2>
-          <form onSubmit={handleCreate} style={{ display: "flex", gap: 6 }}>
-            <input
-              type="number"
-              value={newOrderId}
-              onChange={e => setNewOrderId(e.target.value)}
-              placeholder="N° Pedido"
-              style={{ flex: 1, padding: "7px 10px", border: "1px solid #ddd", borderRadius: 8, fontSize: 13 }}
-            />
-            <button
-              type="submit"
-              disabled={createLoading}
-              style={{ padding: "7px 14px", background: "#6c63ff", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: createLoading ? "not-allowed" : "pointer" }}
-            >
-              {createLoading ? "..." : "+ Crear"}
-            </button>
-          </form>
+          <button
+            type="button"
+            onClick={() => showPending ? setShowPending(false) : loadPendingOrders()}
+            disabled={loadingPending}
+            style={{ padding: "10px 14px", width: "100%", background: showPending ? "#e74c3c" : "#27ae60", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: loadingPending ? "wait" : "pointer", marginBottom: 8 }}
+          >
+            {loadingPending ? "..." : showPending ? "Cerrar" : "📋 NV pendientes de diseño"}
+          </button>
+          {showPending && (
+            <div style={{ marginTop: 8, maxHeight: 200, overflowY: "auto", border: "1px solid #ddd", borderRadius: 8, background: "#fff" }}>
+              {pendingOrders.length === 0 ? (
+                <div style={{ padding: "10px 14px", color: "#999", fontSize: 12 }}>No hay NV pendientes de diseño</div>
+              ) : (
+                pendingOrders.map(po => (
+                  <div
+                    key={po.id}
+                    onClick={async () => {
+                      setShowPending(false);
+                      setSelectedPendingOrder(po);
+                      setCreateError("");
+
+                      // Load templates for this order's entity, plus all entities
+                      try {
+                        const [entities, entityDesigns] = await Promise.all([
+                          getJson<any[]>("/entities"),
+                          po.entity_id ? getJson<any[]>(`/entity-designs?entity_id=${po.entity_id}`) : Promise.resolve([])
+                        ]);
+                        setAllEntities(entities);
+                        setPickableTemplates(entityDesigns);
+                        setShowTemplatePicker(true);
+                      } catch (e) {
+                        // If loading fails, create anyway without template
+                        setCreateLoading(true);
+                        try {
+                          await postJson("/design-requests", { order_id: po.id });
+                          loadRequests();
+                        } catch (err2: unknown) {
+                          setCreateError("Error al crear: " + (err2 instanceof Error ? err2.message : String(err2)));
+                        } finally {
+                          setCreateLoading(false);
+                        }
+                      }
+                    }}
+                    style={{ padding: "10px 14px", cursor: "pointer", borderBottom: "1px solid #f0f0f0", fontSize: 13, display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                    onMouseEnter={e => (e.currentTarget.style.background = "#f5f3ff")}
+                    onMouseLeave={e => (e.currentTarget.style.background = "")}
+                  >
+                    <div>
+                      <strong>{po.order_number}</strong> — {po.contact_name || "Sin contacto"}
+                      {po.entity_name && <span style={{ color: "#6c63ff", marginLeft: 6 }}>🏛 {po.entity_name}</span>}
+                    </div>
+                    <div style={{ color: "#27ae60", fontWeight: 600 }}>${Number(po.paid_amount || 0).toLocaleString("es-AR")}</div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
           {createError && <div style={{ color: "#e74c3c", fontSize: 11, marginTop: 6 }}>{createError}</div>}
+          
+          {showTemplatePicker && selectedPendingOrder && (
+            <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.4)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}
+                 onClick={() => setShowTemplatePicker(false)}>
+              <div style={{ background: "#fff", borderRadius: 12, padding: 24, width: 420, maxHeight: "80vh", overflowY: "auto" }}
+                   onClick={e => e.stopPropagation()}>
+                <h3 style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 700 }}>{selectedPendingOrder.order_number}</h3>
+                <p style={{ margin: "0 0 16px", fontSize: 13, color: "#666" }}>
+                  {selectedPendingOrder.contact_name}
+                  {selectedPendingOrder.entity_name && <> — 🏛 {selectedPendingOrder.entity_name}</>}
+                </p>
+
+                {/* Templates de la entidad del contacto */}
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#888", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>
+                  {pickableTemplates.length > 0 ? "Diseños disponibles" : "Sin diseños predeterminados"}
+                </div>
+
+                {pickableTemplates.length > 0 && pickableTemplates.map((t: any) => (
+                  <div
+                    key={t.id}
+                    onClick={async () => {
+                      setShowTemplatePicker(false);
+                      setCreateLoading(true);
+                      try {
+                        await postJson("/design-requests", { order_id: selectedPendingOrder.id, template_url: t.template_url, entity_id: selectedPendingOrder.entity_id });
+                        setSelectedPendingOrder(null);
+                        loadRequests();
+                      } catch (err: unknown) {
+                        setCreateError("Error: " + (err instanceof Error ? err.message : String(err)));
+                      } finally {
+                        setCreateLoading(false);
+                      }
+                    }}
+                    style={{ padding: "10px 14px", cursor: "pointer", border: "1px solid #eee", borderRadius: 8, marginBottom: 4, fontSize: 13, background: "#fafafa" }}
+                    onMouseEnter={e => (e.currentTarget.style.background = "#f0edff")}
+                    onMouseLeave={e => (e.currentTarget.style.background = "#fafafa")}
+                  >
+                    🎨 {t.name}
+                  </div>
+                ))}
+
+                {/* Opciones adicionales */}
+                <div style={{ marginTop: 12, borderTop: "1px solid #eee", paddingTop: 12 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "#888", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>
+                    Otras opciones
+                  </div>
+
+                  {/* Sin diseño predeterminado */}
+                  <div
+                    onClick={async () => {
+                      setShowTemplatePicker(false);
+                      setCreateLoading(true);
+                      try {
+                        await postJson("/design-requests", { order_id: selectedPendingOrder.id, entity_id: selectedPendingOrder.entity_id || null });
+                        setSelectedPendingOrder(null);
+                        loadRequests();
+                      } catch (err: unknown) {
+                        setCreateError("Error: " + (err instanceof Error ? err.message : String(err)));
+                      } finally {
+                        setCreateLoading(false);
+                      }
+                    }}
+                    style={{ padding: "10px 14px", cursor: "pointer", border: "1px solid #ddd", borderRadius: 8, marginBottom: 4, fontSize: 13, borderStyle: "dashed" }}
+                    onMouseEnter={e => (e.currentTarget.style.background = "#f9f9f9", e.currentTarget.style.borderColor = "#999")}
+                    onMouseLeave={e => { e.currentTarget.style.background = ""; e.currentTarget.style.borderColor = "#ddd"; }}
+                  >
+                    ✏️ Sin diseño predeterminado (diseño libre)
+                  </div>
+
+                  {/* Elegir otra entidad */}
+                  {allEntities.length > 0 && (
+                    <div style={{ marginTop: 8 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "#888", marginBottom: 4 }}>Usar diseño de otra entidad</div>
+                      <select
+                        style={{ width: "100%", padding: "8px 10px", border: "1px solid #ddd", borderRadius: 8, fontSize: 13 }}
+                        defaultValue=""
+                        onChange={async (e: any) => {
+                          if (!e.target.value) return;
+                          setShowTemplatePicker(false);
+                          setCreateLoading(true);
+                          try {
+                            await postJson("/design-requests", { order_id: selectedPendingOrder.id, entity_id: Number(e.target.value) });
+                            setSelectedPendingOrder(null);
+                            loadRequests();
+                          } catch (err: unknown) {
+                            setCreateError("Error: " + (err instanceof Error ? err.message : String(err)));
+                          } finally {
+                            setCreateLoading(false);
+                          }
+                        }}
+                      >
+                        <option value="">Seleccionar entidad...</option>
+                        {allEntities
+                          .filter((ent: any) => ent.id !== selectedPendingOrder.entity_id)
+                          .map((ent: any) => (
+                            <option key={ent.id} value={ent.id}>{ent.name}</option>
+                          ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => setShowTemplatePicker(false)}
+                  style={{ marginTop: 12, padding: "8px 16px", background: "#eee", border: "none", borderRadius: 8, fontSize: 13, cursor: "pointer", width: "100%" }}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div style={{ flex: 1, overflowY: "auto" }}>
