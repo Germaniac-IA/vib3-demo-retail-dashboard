@@ -242,6 +242,9 @@ export function UpdateCostModal({
   const [adjustValue, setAdjustValue] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<number | null>(null);
+  const [inputMethod, setInputMethod] = useState<"fixed"|"reposition"|"average"|"custom">("fixed");
+  const [customCost, setCustomCost] = useState("");
+  const [avgCount, setAvgCount] = useState("5");
 
   const items = mode === "product" ? allProducts : inputItems;
   const isSingle = selectedIds.length === 1 && mode === "product";
@@ -263,24 +266,46 @@ export function UpdateCostModal({
 
   function getLabel() {
     if (!selectedIds.length) return <span>Valor:</span>;
-    if (isInput || isSingle) return <span>Nuevo costo interno ($):</span>;
+    if (isInput && inputMethod === "fixed") return <span>Nuevo costo interno ($):</span>;
+    if (isSingle) return <span>Nuevo costo interno ($):</span>;
     return <span style={{fontSize:13}}>Aumentar cada precio en:</span>;
   }
 
   function getHint() {
     if (!selectedIds.length) return "Selecciona items. Esto cambia costos internos, no precio de venta.";
+    if (isInput && (inputMethod === "reposition" || inputMethod === "average")) return "";
     if (isInput || isSingle) return "Ej: 15000";
     if (adjustType === "percent") return "Ej: 20 (aumenta 20%)";
     return "Ej: 500 (aumenta $500 c/u)";
   }
 
   async function doUpdate() {
-    if (!selectedIds.length || !adjustValue) return;
+    if (!selectedIds.length) return;
     setLoading(true);
     try {
+      if (isInput && inputMethod !== "fixed") {
+        let updatedCount = 0;
+        const token = typeof window !== "undefined" ? localStorage.getItem("token") : "";
+        const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/baver/api";
+        for (const id of selectedIds) {
+          const body: any = { method: inputMethod === "custom" ? "custom" : inputMethod };
+          if (inputMethod === "custom") body.custom_value = Number(customCost) || 0;
+          if (inputMethod === "average") body.avg_count = Number(avgCount) || 5;
+          const res = await fetch(API_BASE + "/input-items/" + id + "/cost", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+            body: JSON.stringify(body),
+          });
+          if (res.ok) updatedCount++;
+          else { const err = await res.json().catch(() => ({})); console.warn("Error en insumo " + id + ": " + (err.error || "desconocido")); }
+        }
+        setResult(updatedCount);
+        setLoading(false);
+        return;
+      }
+
       let endpoint: string;
       let body: any;
-
       if (isInput) {
         endpoint = "/input-items/update-costs";
         body = { inputItemIds: selectedIds, newCost: parseFloat(adjustValue) };
@@ -289,13 +314,10 @@ export function UpdateCostModal({
         body = { productIds: selectedIds, newCostPrice: parseFloat(adjustValue) };
       } else {
         endpoint = "/products/update-costs";
-        if (adjustType === "percent") {
-          body = { productIds: selectedIds, increasePercent: parseFloat(adjustValue) };
-        } else {
-          body = { productIds: selectedIds, increaseAmount: parseFloat(adjustValue) };
-        }
+        body = adjustType === "percent"
+          ? { productIds: selectedIds, increasePercent: parseFloat(adjustValue) }
+          : { productIds: selectedIds, increaseAmount: parseFloat(adjustValue) };
       }
-
       const res = await postJson<any>(endpoint, body);
       setResult(res.updated);
     } catch (e: any) {
@@ -305,7 +327,9 @@ export function UpdateCostModal({
   }
 
   function canSubmit() {
-    return selectedIds.length > 0 && adjustValue !== "";
+    if (!selectedIds.length) return false;
+    if (isInput && (inputMethod === "reposition" || inputMethod === "average")) return true;
+    return adjustValue !== "";
   }
 
   return (
@@ -316,15 +340,11 @@ export function UpdateCostModal({
         <button onClick={() => { setMode("product"); setSelectedIds([]); setSelectAll(false); }}
           style={{ padding: "6px 16px", borderRadius: 8, border: "none", cursor: "pointer",
             background: mode === "product" ? "#6c63ff" : "#f0f0f0",
-            color: mode === "product" ? "#fff" : "#333" }}>
-          Productos
-        </button>
-        <button onClick={() => { setMode("input"); setSelectedIds([]); setSelectAll(false); }}
+            color: mode === "product" ? "#fff" : "#333" }}>Productos</button>
+        <button onClick={() => { setMode("input"); setSelectedIds([]); setSelectAll(false); setInputMethod("fixed"); }}
           style={{ padding: "6px 16px", borderRadius: 8, border: "none", cursor: "pointer",
             background: mode === "input" ? "#6c63ff" : "#f0f0f0",
-            color: mode === "input" ? "#fff" : "#333" }}>
-          Insumos
-        </button>
+            color: mode === "input" ? "#fff" : "#333" }}>Insumos</button>
       </div>
 
       {!result ? (<>
@@ -356,40 +376,68 @@ export function UpdateCostModal({
           ))}
         </div>
 
-        {isMulti && (
-          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-            <button onClick={() => setAdjustType("percent")}
-              style={{ padding: "6px 16px", borderRadius: 8, border: "none", cursor: "pointer",
-                background: adjustType === "percent" ? "#6c63ff" : "#f0f0f0",
-                color: adjustType === "percent" ? "#fff" : "#333", fontSize: 13 }}>
-              Aumentar %
-            </button>
-            <button onClick={() => setAdjustType("amount")}
-              style={{ padding: "6px 16px", borderRadius: 8, border: "none", cursor: "pointer",
-                background: adjustType === "amount" ? "#6c63ff" : "#f0f0f0",
-                color: adjustType === "amount" ? "#fff" : "#333", fontSize: 13 }}>
-              Aumentar $
-            </button>
+        {isInput && (
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#555", marginBottom: 8 }}>Método</div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {[
+                { value: "fixed" as const, label: "Valor fijo", desc: "Mismo costo a todos" },
+                { value: "reposition" as const, label: "Última compra", desc: "Costo de última NP" },
+                { value: "average" as const, label: "Promedio", desc: "Promedio últimas compras" },
+                { value: "custom" as const, label: "Personalizado", desc: "Valor específico" },
+              ].map(m => (
+                <button key={m.value} onClick={() => setInputMethod(m.value)}
+                  style={{ padding: "8px 12px", borderRadius: 8, border: "2px solid", fontSize: 12, cursor: "pointer", textAlign: "left", lineHeight: 1.4,
+                    borderColor: inputMethod === m.value ? "#6c63ff" : "#ddd",
+                    background: inputMethod === m.value ? "#f0eeff" : "#fff", color: "#333", flex: 1, minWidth: 90 }}>
+                  <div style={{ fontWeight: 700 }}>{m.label}</div>
+                  <div style={{ fontSize: 10, color: "#888", marginTop: 2 }}>{m.desc}</div>
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
-        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16 }}>
-          <label style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }}>
-            {getLabel()}
-          </label>
-          <input type="number" value={adjustValue} onChange={e => setAdjustValue(e.target.value)}
-            style={{ flex: 1, padding: "8px 12px", border: "1px solid #ddd", borderRadius: 8, fontSize: 14 }}
-            placeholder={getHint()} />
-          {isMulti && adjustType === "percent" && <span style={{ fontSize: 14, color: "#888" }}>%</span>}
-        </div>
+        {isMulti && mode === "product" && (
+          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+            <button onClick={() => setAdjustType("percent")}
+              style={{ padding: "6px 16px", borderRadius: 8, border: "none", cursor: "pointer", background: adjustType === "percent" ? "#6c63ff" : "#f0f0f0", color: adjustType === "percent" ? "#fff" : "#333", fontSize: 13 }}>Aumentar %</button>
+            <button onClick={() => setAdjustType("amount")}
+              style={{ padding: "6px 16px", borderRadius: 8, border: "none", cursor: "pointer", background: adjustType === "amount" ? "#6c63ff" : "#f0f0f0", color: adjustType === "amount" ? "#fff" : "#333", fontSize: 13 }}>Aumentar $</button>
+          </div>
+        )}
+
+        {!(isInput && (inputMethod === "reposition" || inputMethod === "average")) && (
+          <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16 }}>
+            <label style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }}>{getLabel()}</label>
+            <input type="number" value={adjustValue} onChange={e => setAdjustValue(e.target.value)}
+              style={{ flex: 1, padding: "8px 12px", border: "1px solid #ddd", borderRadius: 8, fontSize: 14 }}
+              placeholder={getHint()} />
+            {isMulti && adjustType === "percent" && <span style={{ fontSize: 14, color: "#888" }}>%</span>}
+          </div>
+        )}
+
+        {isInput && inputMethod === "average" && (
+          <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16 }}>
+            <label style={{ fontSize: 13, fontWeight: 600 }}>Promedio últimas:</label>
+            <input type="number" value={avgCount} onChange={e => setAvgCount(e.target.value)}
+              style={{ width: 80, padding: "8px 12px", border: "1px solid #ddd", borderRadius: 8, fontSize: 14 }} placeholder="5" />
+            <span style={{ fontSize: 13, color: "#888" }}>compras</span>
+          </div>
+        )}
+
+        {isInput && inputMethod === "custom" && (
+          <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16 }}>
+            <label style={{ fontSize: 13, fontWeight: 600 }}>Nuevo costo ($):</label>
+            <input type="number" value={customCost} onChange={e => setCustomCost(e.target.value)}
+              style={{ flex: 1, padding: "8px 12px", border: "1px solid #ddd", borderRadius: 8, fontSize: 14 }} placeholder="Ej: 15000" />
+          </div>
+        )}
 
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-          <button onClick={onClose} style={{ padding: "8px 20px", background: "#f0f0f0", border: "none", borderRadius: 8, cursor: "pointer" }}>
-            Cancelar
-          </button>
+          <button onClick={onClose} style={{ padding: "8px 20px", background: "#f0f0f0", border: "none", borderRadius: 8, cursor: "pointer" }}>Cancelar</button>
           <button onClick={doUpdate} disabled={!canSubmit() || loading}
-            style={{ padding: "8px 20px", background: canSubmit() ? "#6c63ff" : "#ccc",
-              color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>
+            style={{ padding: "8px 20px", background: canSubmit() ? "#6c63ff" : "#ccc", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>
             {loading ? "Actualizando..." : "Actualizar " + selectedIds.length + " items"}
           </button>
         </div>
@@ -398,11 +446,8 @@ export function UpdateCostModal({
           <p style={{ fontSize: 16, color: "#2ecc71", fontWeight: 600 }}>
             {"\u2705"} {result} {mode === "product" ? "productos" : "insumos"} actualizados
           </p>
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 16 }}>
-            <button onClick={() => { onDone(); onClose(); }}
-              style={{ padding: "8px 20px", background: "#6c63ff", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}>
-              Listo
-            </button>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
+            <button onClick={() => { onDone(); onClose(); }} style={{ padding: "8px 20px", background: "#6c63ff", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}>Listo</button>
           </div>
         </div>
       )}

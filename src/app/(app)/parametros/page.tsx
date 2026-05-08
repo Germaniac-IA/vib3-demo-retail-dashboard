@@ -519,17 +519,23 @@ function InputItemsABM() {
       for (const id of selectedItems) {
         const item = items.find(i => i.id === id);
         if (!item) continue;
-        let newCost = item.default_cost || 0;
-        if (costMethod === "reposition") newCost = item.last_cost || 0;
-        else if (costMethod === "custom") newCost = Number(customCost) || 0;
-        else if (costMethod === "average") {
+        if (costMethod === "current") continue;
+        let newCost = item.default_cost;
+        if (costMethod === "reposition" || costMethod === "average") {
           try {
-            const res = await fetch("/api/input-items/" + id + "/cost", {
+            const token = typeof window !== "undefined" ? localStorage.getItem("token") : "";
+            const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/baver/api";
+            const res = await fetch(API_BASE + "/input-items/" + id + "/cost", {
               method: "PATCH",
-              headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (typeof window !== "undefined" ? localStorage.getItem("token") : "") },
-              body: JSON.stringify({ method: "average", avg_count: Number(avgCount) || 5 }),
+              headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+              body: JSON.stringify({ method: costMethod, avg_count: Number(avgCount) || 5 }),
             });
-            if (res.ok) { const data = await res.json(); newCost = data.new_cost || newCost; } } catch { /* keep */ }
+            if (res.ok) { const rd = await res.json(); if (rd.new_cost && rd.new_cost > 0) newCost = rd.new_cost; }
+            else { const errData = await res.json().catch(() => ({})); alert("Error: " + (errData.error || "no se pudo calcular")); continue; }
+          } catch { alert("Error de conexión al calcular costo"); continue; }
+        } else if (costMethod === "custom") {
+          const c = Number(customCost);
+          newCost = (c && c > 0) ? c : item.default_cost;
         }
         await putJson("/input-items/" + id, { name: item.name, unit: item.unit, default_cost: newCost, requires_stock: item.requires_stock, stock_quantity: item.stock_quantity });
       }
