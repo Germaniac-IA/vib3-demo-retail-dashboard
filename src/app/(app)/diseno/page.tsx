@@ -321,7 +321,7 @@ export default function DisenoPage() {
 
   async function handleCopyLink() {
     if (!selected?.token) return;
-    const link = `/baver/d/${selected.token}`;
+    const link = `/d/${selected.token}`;
     try {
       await navigator.clipboard.writeText(link);
     } catch {

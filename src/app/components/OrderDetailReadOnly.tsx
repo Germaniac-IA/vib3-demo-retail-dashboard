@@ -13,6 +13,9 @@ export default function OrderDetailReadOnly({ orderId, onClose }: Props) {
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [mpLink, setMpLink] = useState("");
+  const [mpLoading, setMpLoading] = useState(false);
+  const [mpError, setMpError] = useState("");
 
   useEffect(() => {
     fetchJson<OrderDetail>("/orders/" + orderId)
@@ -20,6 +23,31 @@ export default function OrderDetailReadOnly({ orderId, onClose }: Props) {
       .catch(() => setError("No se pudo cargar la venta"))
       .finally(() => setLoading(false));
   }, [orderId]);
+
+  async function handleMPPay() {
+    setMpLoading(true); setMpError(""); setMpLink("");
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("/api/integrations/mercadopago/preference", {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          order_id: orderId,
+          title: order?.order_number || "Venta #" + orderId,
+          amount: Math.max(Number(remaining), 0),
+          description: "Pago de " + (order?.order_number || "venta #" + orderId),
+        }),
+      });
+      const data = await res.json();
+      if (data.error) { setMpError(data.error); return; }
+      setMpLink(data.init_point);
+      window.open(data.init_point, "_blank");
+    } catch (e: any) {
+      setMpError(e.message || "Error al generar link");
+    } finally {
+      setMpLoading(false);
+    }
+  }
 
   if (loading) return (
     <div style={{ background: "#fff", borderRadius: "16px", padding: "40px", textAlign: "center", width: "100%", maxWidth: "600px" }}>
@@ -177,6 +205,25 @@ export default function OrderDetailReadOnly({ orderId, onClose }: Props) {
             💰 Cobrar NV
           </button>
         )}
+        {remaining > 0 && (
+          <button
+            onClick={handleMPPay}
+            disabled={mpLoading}
+            style={{ flex: 2, padding: "10px", borderRadius: "8px", border: "2px solid #009ee3", background: mpLoading ? "#e8f4fd" : "#e8f4fd", color: "#009ee3", cursor: "pointer", fontSize: "14px", fontWeight: 700, opacity: mpLoading ? 0.7 : 1 }}
+          >
+            {mpLoading ? "Generando..." : "🧾 Cobrar con MP"}
+          </button>
+        )}
+        {mpLink && (
+          <div style={{ marginTop: "8px", padding: "10px 14px", background: "#e8f4fd", borderRadius: "8px", border: "1px solid #009ee3", fontSize: "13px", textAlign: "center" }}>
+            <div style={{ fontWeight: 700, color: "#009ee3", marginBottom: "4px" }}>✅ Link de pago generado</div>
+            <a href={mpLink} target="_blank" rel="noopener noreferrer" style={{ color: "#009ee3", wordBreak: "break-all", fontSize: "12px" }}>{mpLink}</a>
+            <button onClick={() => { navigator.clipboard.writeText(mpLink); }} style={{ display: "block", margin: "8px auto 0", padding: "6px 16px", borderRadius: "6px", border: "1px solid #009ee3", background: "#fff", color: "#009ee3", cursor: "pointer", fontSize: "12px", fontWeight: 700 }}>
+              📋 Copiar link
+            </button>
+          </div>
+        )}
+        {mpError && <div style={{ marginTop: "8px", padding: "8px 12px", background: "#fee", borderRadius: "8px", color: "#c00", fontSize: "12px" }}>{mpError}</div>}
         <button onClick={onClose}
           style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "none", background: "#1a1a2e", color: "#fff", cursor: "pointer", fontSize: "14px", fontWeight: 700 }}>
           Cerrar
