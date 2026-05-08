@@ -50,7 +50,7 @@ export default function PagosPage() {
   function load() {
     setLoading(true);
     Promise.all([
-      fetchJson<CashMovement[]>("/payment-movements?period=" + period),
+      fetchJson<CashMovement[]>("/payment-movements?period=" + period + (period === "custom" && customFrom && customTo ? "&from=" + customFrom + "&to=" + customTo : "")),
       fetchJson<Stats>("/payment/stats?period=" + period + (period === "custom" && customFrom && customTo ? "&from=" + customFrom + "&to=" + customTo : "")),
       fetchJson<PaymentMethod[]>("/payment-methods"),
       fetchJson<Supplier[]>("/providers"),
@@ -254,23 +254,36 @@ export default function PagosPage() {
         </div>
       )}
 
-      <div style={{ display: "flex", gap: "4px", background: "#f0f0f0", padding: "3px", borderRadius: "8px", marginBottom: "12px", width: "fit-content" }}>
-        {(["today", "week", "month", "custom"] as Period[]).map(p => (
-          <button key={p} onClick={() => setPeriod(p)} style={{ padding: "5px 12px", borderRadius: "6px", border: "none", background: period === p ? "#1a1a2e" : "transparent", color: period === p ? "#fff" : "#666", cursor: "pointer", fontSize: "12px", fontWeight: 700 }}>
-            {p === "today" ? "Hoy" : p === "week" ? "Semana" : p === "custom" ? "Personalizado" : "Mes"}
-          </button>
-        ))}
-      </div>
-
-      {period === "custom" && (
-        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center", marginBottom: "12px" }}>
-          <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} style={{ padding: "6px 10px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }} />
-          <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} style={{ padding: "6px 10px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }} />
-          {(customFrom || customTo) && (
-            <button onClick={() => { setCustomFrom(""); setCustomTo(""); setPeriod("today"); }} style={{ padding: "5px 10px", borderRadius: "6px", border: "1px solid #ddd", background: "#fff", color: "#666", fontSize: "12px", cursor: "pointer" }}>Limpiar</button>
-          )}
+      {/* Controls */}
+      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px", flexWrap: "wrap" }}>
+        {/* Period filter */}
+        <div style={{ display: "flex", gap: "4px", background: "#f0f0f0", padding: "3px", borderRadius: "8px" }}>
+          {(["today", "week", "month", "custom"] as Period[]).map(p => (
+            <button key={p} onClick={() => setPeriod(p)}
+              style={{ padding: "5px 12px", borderRadius: "6px", border: "none", background: period === p ? "#1a1a2e" : "transparent", color: period === p ? "#fff" : "#666", cursor: "pointer", fontSize: "12px", fontWeight: 700 }}>
+              {p === "today" ? "Hoy" : p === "week" ? "Semana" : p === "custom" ? "Personalizado" : "Mes"}
+            </button>
+          ))}
         </div>
-      )}
+
+        {period === "custom" && (
+          <div style={{ display: "flex", gap: "8px", alignItems: "center", marginTop: "6px" }}>
+            <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)}
+              style={{ padding: "5px 10px", borderRadius: "6px", border: "1px solid #ddd", fontSize: "12px" }} />
+            <span style={{ fontSize: "12px", color: "#888" }}>hasta</span>
+            <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)}
+              style={{ padding: "5px 10px", borderRadius: "6px", border: "1px solid #ddd", fontSize: "12px" }} />
+            {(customFrom || customTo) && (
+              <button onClick={() => { setCustomFrom(""); setCustomTo(""); }}
+                style={{ padding: "5px 10px", borderRadius: "6px", border: "1px solid #ddd", background: "#fff", fontSize: "12px", cursor: "pointer" }}>
+                Limpiar
+              </button>
+            )}
+            <button onClick={() => setRefreshKey(k => k + 1)}
+              style={{ padding: "5px 12px", borderRadius: "6px", border: "none", background: "#27ae60", color: "#fff", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>Aplicar</button>
+          </div>
+        )}
+      </div>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", gap: "12px", flexWrap: "wrap" }}>
         {!hasOpenCashSession && <div style={{ fontSize: "12px", color: "#e67e22", fontWeight: 700 }}>Abrí una caja para registrar pagos</div>}

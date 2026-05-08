@@ -20,6 +20,8 @@ export default function GastosPage() {
   const [period, setPeriod] = useState<Period>("month");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Expense | null>(null);
   const [showPay, setShowPay] = useState<Expense | null>(null);
@@ -85,9 +87,10 @@ export default function GastosPage() {
     acc[k].push(e);
     return acc;
   }, {} as Record<string, Expense[]>);
-  const monthStart = new Date();
+  const monthStart = new Date(calendarMonth);
   monthStart.setDate(1);
-  const calendarDays = Array.from({ length: 35 }, (_, i) => {
+  const monthLabel = monthStart.toLocaleDateString("es-AR", { month: "long", year: "numeric" });
+  const calendarDays = Array.from({ length: 42 }, (_, i) => {
     const d = new Date(monthStart);
     d.setDate(1 - monthStart.getDay() + i);
     return d;
@@ -96,7 +99,10 @@ export default function GastosPage() {
   return <div>
     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
       <div><PageTitle>🧾 Gastos</PageTitle><p style={{fontSize:13,color:"#888",margin:"2px 0 0"}}>Devengamientos y egresos no inventariables del negocio.</p></div>
-      <button onClick={openNew} style={{ padding:"9px 16px", borderRadius:8, border:"none", background:"#27ae60", color:"#fff", fontWeight:700, cursor:"pointer" }}>➕ Nuevo gasto</button>
+      <div style={{ display:"flex", gap:8, flexWrap:"wrap", justifyContent:"flex-end" }}>
+        <button onClick={() => setShowCalendar(v => !v)} style={{ padding:"9px 14px", borderRadius:8, border:"1px solid #ddd", background:showCalendar ? "#1a1a2e" : "#fff", color:showCalendar ? "#fff" : "#333", fontWeight:700, cursor:"pointer" }}>{showCalendar ? "Ocultar calendario" : "🗓️ Ver calendario"}</button>
+        <button onClick={openNew} style={{ padding:"9px 16px", borderRadius:8, border:"none", background:"#27ae60", color:"#fff", fontWeight:700, cursor:"pointer" }}>➕ Nuevo gasto</button>
+      </div>
     </div>
 
     <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))", gap:10, marginBottom:14 }}>
@@ -107,13 +113,16 @@ export default function GastosPage() {
 
 
 
-    <Card style={{ marginBottom: 14 }}>
+    {showCalendar && <Card style={{ marginBottom: 14 }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:12, flexWrap:"wrap", marginBottom:12 }}>
         <div>
           <h3 style={{ margin:"0 0 2px", fontSize:16 }}>🗓️ Calendario de pagos</h3>
           <p style={{ margin:0, fontSize:12, color:"#888" }}>Gastos pendientes con fecha de vencimiento.</p>
         </div>
-        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center", justifyContent:"flex-end" }}>
+          <button onClick={() => setCalendarMonth(new Date(monthStart.getFullYear(), monthStart.getMonth() - 1, 1))} style={{ padding:"5px 9px", borderRadius:7, border:"1px solid #ddd", background:"#fff", cursor:"pointer" }}>←</button>
+          <strong style={{ fontSize:13, minWidth:120, textAlign:"center", textTransform:"capitalize" }}>{monthLabel}</strong>
+          <button onClick={() => setCalendarMonth(new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 1))} style={{ padding:"5px 9px", borderRadius:7, border:"1px solid #ddd", background:"#fff", cursor:"pointer" }}>→</button>
           <span style={{ fontSize:12, color:overdue.length ? "#e74c3c" : "#888", fontWeight:700 }}>Vencidos: {overdue.length}</span>
           <span style={{ fontSize:12, color:"#f39c12", fontWeight:700 }}>Próximos: {upcoming.length}</span>
         </div>
@@ -164,12 +173,36 @@ export default function GastosPage() {
           </div>
         </div>
       )}
-    </Card>
+    </Card>}
 
-    <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:12 }}>
-      {(["today","week","month"] as Period[]).map(p => <button key={p} onClick={()=>setPeriod(p)} style={{padding:"6px 12px",borderRadius:8,border:"none",background:period===p?"#1a1a2e":"#eee",color:period===p?"#fff":"#333",cursor:"pointer"}}>{p==="today"?"Hoy":p==="week"?"7 días":"30 días"}</button>)}
-      <button onClick={()=>setPeriod("custom")} style={{padding:"6px 12px",borderRadius:8,border:"none",background:period==="custom"?"#1a1a2e":"#eee",color:period==="custom"?"#fff":"#333",cursor:"pointer"}}>Personalizado</button>
-      {period==="custom" && <><input type="date" value={customFrom} onChange={e=>setCustomFrom(e.target.value)} style={{padding:"6px 10px",border:"1px solid #ddd",borderRadius:8}}/><input type="date" value={customTo} onChange={e=>setCustomTo(e.target.value)} style={{padding:"6px 10px",border:"1px solid #ddd",borderRadius:8}}/></>}
+    {/* Controls */}
+    <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px", flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: "4px", background: "#f0f0f0", padding: "3px", borderRadius: "8px" }}>
+        {(["today", "week", "month", "custom"] as Period[]).map(p => (
+          <button key={p} onClick={() => setPeriod(p)}
+            style={{ padding: "5px 12px", borderRadius: "6px", border: "none", background: period === p ? "#1a1a2e" : "transparent", color: period === p ? "#fff" : "#666", cursor: "pointer", fontSize: "12px", fontWeight: 700 }}>
+            {p === "today" ? "Hoy" : p === "week" ? "Semana" : p === "custom" ? "Personalizado" : "Mes"}
+          </button>
+        ))}
+      </div>
+
+      {period === "custom" && (
+        <div style={{ display: "flex", gap: "8px", alignItems: "center", marginTop: "6px" }}>
+          <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)}
+            style={{ padding: "5px 10px", borderRadius: "6px", border: "1px solid #ddd", fontSize: "12px" }} />
+          <span style={{ fontSize: "12px", color: "#888" }}>hasta</span>
+          <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)}
+            style={{ padding: "5px 10px", borderRadius: "6px", border: "1px solid #ddd", fontSize: "12px" }} />
+          {(customFrom || customTo) && (
+            <button onClick={() => { setCustomFrom(""); setCustomTo(""); }}
+              style={{ padding: "5px 10px", borderRadius: "6px", border: "1px solid #ddd", background: "#fff", fontSize: "12px", cursor: "pointer" }}>
+              Limpiar
+            </button>
+          )}
+          <button onClick={load}
+            style={{ padding: "5px 12px", borderRadius: "6px", border: "none", background: "#27ae60", color: "#fff", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>Aplicar</button>
+        </div>
+      )}
     </div>
 
     {loading ? <Loading/> : expenses.length===0 ? <Empty message="Sin gastos registrados"/> : <div style={{display:"grid", gap:10}}>{expenses.map(e => <Card key={e.id}>

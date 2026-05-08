@@ -88,6 +88,23 @@ export default function VentasPage() {
       .catch(e => alert('Error: ' + e));
   }
 
+  async function startProduction(orderId: number) {
+    if (!confirm("Iniciar producción para esta NV?")) return;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
+    try {
+      const r = await fetch(API + "/plugins/produccion/init/" + orderId, {
+        method: 'POST', headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (r.ok) {
+        alert("✅ Producción iniciada");
+        setRefreshKey(k => k + 1);
+      } else {
+        const err = await r.json();
+        alert("Error: " + (err.error || err.message || r.status));
+      }
+    } catch(e: any) { alert("Error: " + e.message); }
+  }
+
   async function markDelivered(orderId: number) {
     const delivered = orderStatuses.find(s => s.name?.toLowerCase() === "entregado");
     if (!delivered) { alert('No encontré un estado llamado Entregado'); return; }
@@ -100,7 +117,7 @@ export default function VentasPage() {
   function load() {
     setLoading(true);
     Promise.all([
-      fetchJson<OrderRow[]>("/orders" + (period === "custom" && customFrom && customTo ? "?date_from=" + customFrom + "&date_to=" + customTo : "")),
+      fetchJson<OrderRow[]>("/orders?period=" + period + (period === "custom" && customFrom && customTo ? "&from=" + customFrom + "&to=" + customTo : "")),
       fetchJson<SaleChannel[]>("/sale-channels"),
       fetchJson<OrderStatus[]>("/order-statuses"),
       fetchJson<PaymentStatus[]>("/payment-statuses"),
@@ -350,6 +367,12 @@ function handleExportExcel() {
                       style={{ padding: "5px 8px", borderRadius: "6px", border: "1px solid #ddd", background: "#fff", cursor: "pointer", fontSize: "12px" }}>
                       🚚
                     </button>
+                    {o.order_status_name?.toLowerCase() === "pedido" && (
+                      <button onClick={() => startProduction(o.id)} title="Iniciar producción"
+                        style={{ padding: "5px 8px", borderRadius: "6px", border: "1px solid #6c63ff", background: "#f3f0ff", cursor: "pointer", fontSize: "12px" }}>
+                        🏗️
+                      </button>
+                    )}
                     {o.order_status_name?.toLowerCase() !== "entregado" && (
                       <button onClick={() => markDelivered(o.id)} title="Marcar entregado"
                         style={{ padding: "5px 8px", borderRadius: "6px", border: "1px solid #27ae60", background: "#f0fff4", cursor: "pointer", fontSize: "12px" }}>
@@ -406,6 +429,7 @@ function handleExportExcel() {
                     <button onClick={() => setDetailId(o.id)} title="Ver detalle" style={{ background: "none", border: "none", cursor: "pointer", fontSize: "12px", padding: "2px 4px" }}>👁️</button>
                     <button onClick={() => openStatusModal(o.id)} title="Editar estado" style={{ background: "none", border: "none", cursor: "pointer", fontSize: "12px", padding: "2px 4px" }}>🚚</button>
                     {o.order_status_name?.toLowerCase() !== "entregado" && <button onClick={() => markDelivered(o.id)} title="Marcar entregado" style={{ background: "none", border: "none", cursor: "pointer", fontSize: "12px", padding: "2px 4px", color: "#27ae60" }}>✅</button>}
+                    {o.order_status_name?.toLowerCase() === "pedido" && <button onClick={() => startProduction(o.id)} title="Iniciar producción" style={{ background: "none", border: "none", cursor: "pointer", fontSize: "12px", padding: "2px 4px", color: "#6c63ff" }}>🏗️</button>}
                     <button onClick={() => handleDelete(o.id, o.order_number)} title="Eliminar" style={{ background: "none", border: "none", cursor: "pointer", fontSize: "12px", padding: "2px 4px", color: "#e74c3c" }}>🗑️</button>
                   </td>
                 </tr>
