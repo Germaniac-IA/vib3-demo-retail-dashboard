@@ -268,7 +268,7 @@ export default function ContactosPage() {
               </thead>
               <tbody>
                 {filteredContacts.map((ct) => (
-                  <tr key={ct.id} style={{ borderBottom: "1px solid #f1f1f1", cursor:"pointer" }} onClick={() => openEdit(ct)}>
+                  <tr key={ct.id} style={{ borderBottom: "1px solid #f1f1f1", cursor:"pointer" }} onClick={() => window.location.href = "/contactos/" + ct.id}>
                     <td style={tdStyle}><strong>{ct.name || "-"}</strong></td>
                     <td style={tdStyle}>{ct.phone || "-"}</td>
                     <td style={tdStyle}>{ct.whatsapp || "-"}</td>
@@ -286,7 +286,8 @@ export default function ContactosPage() {
                     <td style={tdStyle}>{ct.entity_name || "-"}</td>
                     <td style={tdStyle} onClick={(e) => e.stopPropagation()}>
                       <div style={{ display: "flex", gap: "4px" }}>
-                        <IconButton variant="ghost" title="Editar" onClick={() => openEdit(ct)}>✏️</IconButton>
+                        
+                        <IconButton variant="ghost" title="Editar" onClick={() => window.location.href = "/contactos/" + ct.id}>✏️</IconButton>
                         <IconButton variant="danger" title="Eliminar" onClick={() => handleDelete(ct.id)}>🗑️</IconButton>
                       </div>
                     </td>
