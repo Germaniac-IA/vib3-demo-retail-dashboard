@@ -39,6 +39,7 @@ const NAV_STRUCTURE: NavSection[] = [
     title: "OPERACIÓN",
     items: [
       { label: "Ventas", icon: "🧾", href: "/ventas" },
+      { label: "Suscripciones", icon: "🔄", href: "/suscripciones" },
       { label: "Cobros", icon: "💰", href: "/cobros" },
       { label: "Compras", icon: "📥", href: "/compras" },
       { label: "Gastos", icon: "🧾", href: "/gastos" },
