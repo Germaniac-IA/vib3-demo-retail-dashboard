@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { fetchJson } from "../../lib";
+import { fetchJson, postJson, putJson, deleteJson } from "../../lib";
 
 type BudgetItem = {
   id?: number;
@@ -84,7 +84,7 @@ export default function PresupuestosPage() {
       const params = new URLSearchParams();
       if (statusFilter !== "todos") params.set("status", statusFilter);
       if (search) params.set("q", search);
-      const res = await (await fetch("/api/budgets?" + params.toString())).json();
+      const res = await fetchJson<any>("/budgets?" + params.toString());
       setBudgets(res.budgets || []);
     } catch (e) { console.error(e); }
     setLoading(false);
@@ -93,7 +93,7 @@ export default function PresupuestosPage() {
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
-    fetch("/api/contacts").then(r => r.json()).then(setContacts).catch(() => {});
+    fetchJson<Contact[]>("/contacts?limit=500").then(setContacts).catch(() => {});
   }, []);
 
   function resetForm() {
@@ -126,7 +126,7 @@ export default function PresupuestosPage() {
     try {
       const url = editing ? `/api/budgets/${editing.id}` : "/api/budgets";
       const method = editing ? "PUT" : "POST";
-      await (await fetch(url, { method, body: JSON.stringify(body), headers: { "Content-Type": "application/json" } })).json();
+      editing ? await putJson(url.replace("/api", ""), body) : await postJson("/budgets", body);
       setShowModal(false);
       resetForm();
       load();
@@ -136,7 +136,7 @@ export default function PresupuestosPage() {
   async function handleDelete(id: number) {
     if (!confirm("¿Eliminar presupuesto?")) return;
     try {
-      await fetch(`/api/budgets/${id}`, { method: "DELETE" });
+      await deleteJson(`/budgets/${id}`);
       load();
     } catch (e: any) { alert("Error: " + e.message); }
   }
@@ -144,7 +144,7 @@ export default function PresupuestosPage() {
   async function handleConvert(id: number) {
     if (!confirm("¿Convertir este presupuesto en Nota de Venta?")) return;
     try {
-      const res = await (await fetch(`/api/budgets/${id}/convert`, { method: "POST" })).json();
+      const res = await postJson<any>(`/budgets/${id}/convert`, {});
       alert(`Presupuesto convertido a NV ${res.order_number}`);
       load();
     } catch (e: any) { alert("Error: " + e.message); }
@@ -153,7 +153,7 @@ export default function PresupuestosPage() {
   function openDetail(id: number) {
     setDetailId(id);
     setShowDetail(true);
-    fetch(`/api/budgets/${id}`).then(r => r.json()).then(setDetailData).catch(() => {});
+    fetchJson<any>(`/budgets/${id}`).then(setDetailData).catch(() => {});
   }
 
   function openEdit(b: Budget) {

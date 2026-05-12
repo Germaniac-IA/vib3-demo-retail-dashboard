@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { fetchJson, putJson } from "../../../lib";
 
 type BudgetDesign = {
   id?: number;
@@ -89,8 +90,7 @@ export default function BudgetDesignPage() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch("/api/budgets/design");
-        const data = await res.json();
+        const data = await fetchJson<BudgetDesign>("/budgets/design")
         if (data && data.id) setDesign(data);
       } catch {}
     })();
@@ -100,12 +100,7 @@ export default function BudgetDesignPage() {
     setSaving(true);
     setSaved(false);
     try {
-      const res = await fetch("/api/budgets/design", {
-        method: "PUT",
-        body: JSON.stringify(design),
-        headers: { "Content-Type": "application/json" },
-      });
-      await res.json();
+      await putJson("/budgets/design", design);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (e: any) {
