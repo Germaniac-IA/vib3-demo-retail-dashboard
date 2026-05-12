@@ -30,6 +30,7 @@ const NAV_STRUCTURE: NavSection[] = [
     items: [
       { label: "Productos", icon: "📦", href: "/productos" },
       { label: "Servicios", icon: "🛠️", href: "/servicios" },
+      { label: "Presupuestos", icon: "📄", href: "/presupuestos" },
       { label: "Planes", icon: "📋", href: "/planes" },
       { label: "Leads", icon: "📍", href: "/leads" },
       { label: "Contactos", icon: "👥", href: "/contactos" },
