@@ -140,6 +140,7 @@ export default function HomePage() {
             ["🧾", "Ventas", "/ventas"],
             ["🔄", "Suscripciones", "/suscripciones"],
             ["🔧", "O. Trabajo", "/ordenes-trabajo"],
+            ["📄", "Presupuestos", "/presupuestos"],
             ["💰", "Cobros", "/cobros"],
             ["📥", "Compras", "/compras"],
             ["🧾", "Gastos", "/gastos"],

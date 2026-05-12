@@ -30,7 +30,6 @@ const NAV_STRUCTURE: NavSection[] = [
     items: [
       { label: "Productos", icon: "📦", href: "/productos" },
       { label: "Servicios", icon: "🛠️", href: "/servicios" },
-      { label: "Presupuestos", icon: "📄", href: "/presupuestos" },
       { label: "Planes", icon: "📋", href: "/planes" },
       { label: "Leads", icon: "📍", href: "/leads" },
       { label: "Contactos", icon: "👥", href: "/contactos" },
@@ -45,6 +44,7 @@ const NAV_STRUCTURE: NavSection[] = [
       { label: "Ventas", icon: "🧾", href: "/ventas" },
       { label: "Suscripciones", icon: "🔄", href: "/suscripciones" },
       { label: "O. Trabajo", icon: "🔧", href: "/ordenes-trabajo" },
+      { label: "Presupuestos", icon: "📄", href: "/presupuestos" },
       { label: "Cobros", icon: "💰", href: "/cobros" },
       { label: "Compras", icon: "📥", href: "/compras" },
       { label: "Gastos", icon: "🧾", href: "/gastos" },
