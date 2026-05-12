@@ -203,6 +203,17 @@ export default function PresupuestosPage() {
     } catch (e: any) { alert("Error: " + e.message); }
   }
 
+  async function handleStatusChange(id: number, status: string) {
+    try {
+      await putJson(`/budgets/${id}`, { status });
+      load();
+      if (showDetail) {
+        const d = await fetchJson<any>(`/budgets/${id}`);
+        setDetailData(d);
+      }
+    } catch (e: any) { alert("Error: " + e.message); }
+  }
+
   function openDetail(id: number) {
     setDetailId(id);
     setShowDetail(true);
@@ -524,15 +535,23 @@ export default function PresupuestosPage() {
                   {statusLabels[detailData.status] || detailData.status}
                 </span>
               </div>
-              <div style={{ display: "flex", gap: "4px" }}>
-                {detailData.status === "pendiente" && (
-                  <>
-                    <button onClick={() => { setShowDetail(false); openEdit(detailData); }}
-                      style={{ background: "none", border: "1px solid var(--border-color)", borderRadius: "6px", padding: "4px 8px", cursor: "pointer", fontSize: "12px", color: "var(--text-primary)" }}>✏️</button>
-                    <button onClick={() => { setShowDetail(false); handleConvert(detailData.id); }}
-                      style={{ background: "var(--accent)", border: "none", borderRadius: "6px", padding: "6px 12px", cursor: "pointer", color: "#fff", fontSize: "12px", fontWeight: 600 }}>Convertir a NV</button>
-                  </>
+              <div style={{ display: "flex", gap: "4px", flexWrap: "wrap", alignItems: "center" }}>
+                {detailData.status !== "convertido" && (
+                  <button onClick={() => { setShowDetail(false); openEdit(detailData); }}
+                    style={{ background: "none", border: "1px solid var(--border-color)", borderRadius: "6px", padding: "4px 8px", cursor: "pointer", fontSize: "12px", color: "var(--text-primary)" }}>✏️</button>
                 )}
+                {detailData.status === "pendiente" && (
+                  <button onClick={() => { setShowDetail(false); handleConvert(detailData.id); }}
+                    style={{ background: "var(--accent)", border: "none", borderRadius: "6px", padding: "6px 12px", cursor: "pointer", color: "#fff", fontSize: "12px", fontWeight: 600 }}>Convertir a NV</button>
+                )}
+                <div style={{ display: "flex", gap: "3px" }}>
+                  {["pendiente", "aprobado", "vencido"].filter(st => st !== detailData.status).map(st => (
+                    <button key={st} onClick={() => handleStatusChange(detailData.id, st)}
+                      style={{ padding: "4px 8px", borderRadius: "6px", border: "1px solid var(--border-color)", background: (statusColors[st] || "#888") + "22", cursor: "pointer", fontSize: "11px", fontWeight: 600, color: statusColors[st] || "#888" }}>
+                      {statusLabels[st] || st}
+                    </button>
+                  ))}
+                </div>
                 <button onClick={() => downloadPdf(detailData.id, detailData.number)}
                   style={{ background: "none", border: "1px solid var(--border-color)", borderRadius: "6px", padding: "4px 8px", cursor: "pointer", fontSize: "12px", color: "var(--text-primary)" }}>📄 PDF</button>
               </div>
