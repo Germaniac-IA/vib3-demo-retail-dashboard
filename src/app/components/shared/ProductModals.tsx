@@ -457,7 +457,7 @@ export function UpdateCostModal({
 
 
 
-export function UpdatePriceModal({ products, onClose, onDone }: { products: any[]; onClose: () => void; onDone: () => void }) {
+export function UpdatePriceModal({ products, onClose, onDone, apiEndpoint }: { products: any[]; onClose: () => void; onDone: () => void; apiEndpoint?: string }) {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [adjustType, setAdjustType] = useState<"percent" | "amount">("percent");
@@ -499,7 +499,8 @@ export function UpdatePriceModal({ products, onClose, onDone }: { products: any[
       if (isSingle) body = { productIds: selectedIds, newPrice: parseFloat(adjustValue) };
       else if (adjustType === "percent") body = { productIds: selectedIds, increasePercent: parseFloat(adjustValue) };
       else body = { productIds: selectedIds, increaseAmount: parseFloat(adjustValue) };
-      const res = await postJson<any>("/products/update-prices", body);
+      const endpoint = apiEndpoint || "/products/update-prices";
+      const res = await postJson<any>(endpoint, body);
       setResult(res.updated);
     } catch (e: any) { alert("Error: " + e.message); }
     setLoading(false);

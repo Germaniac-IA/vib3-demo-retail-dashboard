@@ -18,17 +18,19 @@ const NAV_STRUCTURE: NavSection[] = [
   {
     title: "MIS DATOS",
     items: [
+      { label: "Inicio", icon: "🏠", href: "/inicio" },
       { label: "Mi Negocio", icon: "🏪", href: "/negocio" },
       { label: "Mis Agentes", icon: "🤖", href: "/agentes" },
+      { label: "Parámetros", icon: "⚙️", href: "/parametros" },
+      { label: "Integraciones", icon: "🔌", href: "/integraciones" },
     ],
   },
   {
     title: "GESTIÓN",
     items: [
-      { label: "Parámetros", icon: "⚙️", href: "/parametros" },
-      { label: "Integraciones", icon: "🔌", href: "/integraciones" },
-      { label: "Estadísticas", icon: "📊", href: "/estadisticas" },
       { label: "Productos", icon: "📦", href: "/productos" },
+      { label: "Servicios", icon: "🛠️", href: "/servicios" },
+      { label: "Planes", icon: "📋", href: "/planes" },
       { label: "Leads", icon: "📍", href: "/leads" },
       { label: "Contactos", icon: "👥", href: "/contactos" },
       { label: "Entidades", icon: "🏢", href: "/entidades" },
@@ -38,8 +40,10 @@ const NAV_STRUCTURE: NavSection[] = [
   {
     title: "OPERACIÓN",
     items: [
+      { label: "Estadísticas", icon: "📊", href: "/estadisticas" },
       { label: "Ventas", icon: "🧾", href: "/ventas" },
       { label: "Suscripciones", icon: "🔄", href: "/suscripciones" },
+      { label: "O. Trabajo", icon: "🔧", href: "/ordenes-trabajo" },
       { label: "Cobros", icon: "💰", href: "/cobros" },
       { label: "Compras", icon: "📥", href: "/compras" },
       { label: "Gastos", icon: "🧾", href: "/gastos" },

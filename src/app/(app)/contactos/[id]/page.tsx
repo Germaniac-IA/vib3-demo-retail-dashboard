@@ -14,7 +14,7 @@ type Contact = {
 
 type Order = {
   id: number; order_number: string; total: string; created_at: string;
-  status_name: string; payment_status_name: string;
+  status_name: string; payment_status_name: string; paid_amount?: string; balance_due?: string;
 };
 
 type Payment = {
@@ -59,9 +59,11 @@ export default function Contact360Page() {
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
   const [notes, setNotes] = useState<ContactNote[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [subscriptions, setSubscriptions] = useState<any[]>([]);
+  const [billingCycles, setBillingCycles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [tab, setTab] = useState<"resumen"|"ordenes"|"pagos"|"timeline"|"notas">("resumen");
+  const [tab, setTab] = useState<"resumen"|"ordenes"|"pagos"|"timeline"|"notas"|"suscripciones">("resumen");
 
   // New note state
   const [newNote, setNewNote] = useState("");
@@ -78,7 +80,7 @@ export default function Contact360Page() {
 
   // Pay modal
   const [showPayModal, setShowPayModal] = useState(false);
-  const [payOrderId, setPayOrderId] = useState<number | null>(null);
+  const [payOrderIds, setPayOrderIds] = useState<number[]>([]);
   const [payAmount, setPayAmount] = useState("");
   const [payMethod, setPayMethod] = useState("");
   const [payMethods, setPayMethods] = useState<{id: number; name: string}[]>([]);
@@ -106,6 +108,8 @@ export default function Contact360Page() {
         setTimeline(data.timeline || []);
         setNotes(data.notes || []);
         setStats(data.stats);
+        setSubscriptions(data.subscriptions || []);
+        setBillingCycles(data.billing_cycles || []);
       })
       .catch((e) => setError(e.message || "Error al cargar"))
       .finally(() => setLoading(false));
@@ -218,21 +222,34 @@ export default function Contact360Page() {
       setPayMethods(methods);
       setPayAmount("");
       setPayMethod("");
-      setPayOrderId(null);
+      setPayOrderIds([]);
       setPayError("");
       setShowPayModal(true);
     } catch (e) { console.error(e); }
   }
 
   async function handlePay() {
-    if (!payAmount || !payMethod) return;
+    if (payOrderIds.length === 0 || !payMethod || !payAmount) return;
     setSavingPay(true);
     setPayError("");
     try {
-      await postJson<any>("/orders/" + payOrderId + "/payments", {
-        amount: Number(payAmount),
-        payment_method_id: Number(payMethod)
-      });
+      const selectedOrders = orders
+        .filter(o => payOrderIds.includes(o.id) && o.payment_status_name !== "Pagado")
+        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      let remaining = Number(payAmount);
+      if (!remaining || remaining <= 0) throw new Error("Monto inválido");
+
+      for (const order of selectedOrders) {
+        if (remaining <= 0) break;
+        const due = Number(order.balance_due ?? order.total ?? 0);
+        if (!due || due <= 0) continue;
+        const amount = Math.min(remaining, due);
+        await postJson<any>("/orders/" + order.id + "/payments", {
+          amount,
+          payment_method_id: Number(payMethod)
+        });
+        remaining -= amount;
+      }
       setShowPayModal(false);
       load360();
     } catch (e: any) {
@@ -373,6 +390,7 @@ export default function Contact360Page() {
         {tabBtn("pagos", "💳 Pagos (" + payments.length + ")")}
         {tabBtn("timeline", "📋 Actividad (" + timeline.length + ")")}
         {tabBtn("notas", "📝 Notas (" + notes.length + ")")}
+        {tabBtn("suscripciones", "🔄 Suscripciones (" + subscriptions.length + ")")}
       </div>
 
       {/* ── TAB CONTENT ── */}
@@ -484,6 +502,73 @@ export default function Contact360Page() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+        )}
+
+        {/* SUSCRIPCIONES */}
+        {tab === "suscripciones" && (
+          subscriptions.length === 0
+            ? <div style={{textAlign:"center", padding:"20px", color: muted}}>Sin suscripciones activas</div>
+            : <div>
+                {subscriptions.map(s => {
+                  const subCycles = billingCycles.filter((bc: any) => bc.subscription_id === s.id);
+                  return (
+                    <div key={s.id} style={{marginBottom:"20px", padding:"14px", backgroundColor: cardBg, borderRadius:"8px", border:"1px solid " + border}}>
+                      <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"10px"}}>
+                        <div>
+                          <strong style={{fontSize:"15px", color: text}}>{s.plan_name}</strong>
+                          <span style={{marginLeft:"8px", fontSize:"12px", padding:"2px 8px", borderRadius:"10px",
+                            backgroundColor: s.status === 'active' ? "#27ae6022" : "#88888822",
+                            color: s.status === 'active' ? "#27ae60" : "#888"}}>{s.status}</span>
+                        </div>
+                        <div style={{fontSize:"14px", fontWeight:700, color: text}}>{"$" + Number(s.billing_amount || s.plan_amount || 0).toLocaleString("es-AR", {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+                      </div>
+                      <div style={{display:"flex", gap:"16px", fontSize:"12px", color:muted, marginBottom:"10px"}}>
+                        <span>Ciclo: {s.billing_cycle}</span>
+                        <span>Inicio: {f(s.start_date)}</span>
+                        {s.next_billing_date && <span>Próximo: {f(s.next_billing_date)}</span>}
+                      </div>
+
+                      {subCycles.length > 0 && (
+                        <div style={{overflowX:"auto"}}>
+                          <table style={{width:"100%", borderCollapse:"collapse", fontSize:"12px"}}>
+                            <thead>
+                              <tr>
+                                <th style={th}>Período</th>
+                                <th style={th}>Monto</th>
+                                <th style={th}>Vence</th>
+                                <th style={th}>Estado</th>
+                                <th style={th}>NV</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {subCycles.map((bc: any) => (
+                                <tr key={bc.id} style={{borderBottom: "1px solid " + border}}>
+                                  <td style={td}>{f(bc.period_start)} → {f(bc.period_end)}</td>
+                                  <td style={{...td, fontWeight:600}}>{"$" + Number(bc.amount || 0).toLocaleString("es-AR", {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+                                  <td style={td}>{bc.due_date ? f(bc.due_date) : "-"}</td>
+                                  <td style={td}>
+                                    <span style={{padding:"2px 8px", borderRadius:"10px", fontSize:"11px",
+                                      backgroundColor: bc.status === 'paid' ? "#27ae6022" : bc.status === 'billed' ? "#3498db22" : bc.status === 'overdue' ? "#e74c3c22" : "#f1c40f22",
+                                      color: bc.status === 'paid' ? "#27ae60" : bc.status === 'billed' ? "#3498db" : bc.status === 'overdue' ? "#e74c3c" : "#f39c12"}}>
+                                      {bc.status || "pending"}
+                                    </span>
+                                  </td>
+                                  <td style={td}>
+                                    {bc.order_number
+                                      ? <a href={"/ventas"} style={{color:"#6c63ff", textDecoration:"underline", cursor:"pointer"}}>{bc.order_number}</a>
+                                      : <span style={{color:muted}}>-</span>}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                      {subCycles.length === 0 && <div style={{fontSize:"12px", color:muted, padding:"8px 0"}}>Sin billing cycles</div>}
+                    </div>
+                  );
+                })}
               </div>
         )}
 
@@ -651,36 +736,50 @@ export default function Contact360Page() {
                 <div style={{fontSize:"13px", fontWeight:700, marginBottom:"8px"}}>Órdenes pendientes</div>
                 {orders.filter(o => o.payment_status_name !== "Pagado").map(o => {
                   const total = parseFloat(o.total) || 0;
+                  const due = parseFloat(o.balance_due || o.total) || 0;
+                  const selected = payOrderIds.includes(o.id);
                   return (
                     <div key={o.id}
                       style={{
                         display:"flex", alignItems:"center", gap:"10px", padding:"10px 12px",
-                        border: payOrderId === o.id ? "2px solid #6c63ff" : "1px solid " + border,
+                        border: selected ? "2px solid #6c63ff" : "1px solid " + border,
                         borderRadius:"10px", marginBottom:"8px", cursor:"pointer",
-                        background: payOrderId === o.id ? "#6c63ff0a" : "transparent"
+                        background: selected ? "#6c63ff0a" : "transparent"
                       }}
                       onClick={() => {
-                        setPayOrderId(o.id);
-                        setPayAmount(String(total));
+                        setPayOrderIds(prev => {
+                          const next = prev.includes(o.id) ? prev.filter(id => id !== o.id) : [...prev, o.id];
+                          const totalDue = orders
+                            .filter(ord => next.includes(ord.id))
+                            .reduce((acc, ord) => acc + (parseFloat(ord.balance_due || ord.total || "0") || 0), 0);
+                          setPayAmount(next.length ? String(totalDue) : "");
+                          return next;
+                        });
                       }}>
-                      <input type="radio" checked={payOrderId === o.id} onChange={() => {}} style={{accentColor:"#6c63ff"}} />
+                      <input type="checkbox" checked={selected} onChange={() => {}} style={{accentColor:"#6c63ff"}} />
                       <div style={{flex:1, minWidth:0}}>
                         <div style={{fontWeight:600, fontSize:"13px"}}>{o.order_number || "#" + o.id}</div>
                         <div style={{fontSize:"11px", color: muted}}>{o.status_name || "-"}</div>
                       </div>
-                      <div style={{fontWeight:700, fontSize:"14px"}}>{s(total)}</div>
+                      <div style={{textAlign:"right"}}><div style={{fontWeight:700, fontSize:"14px"}}>{s(due)}</div>{due !== total && <div style={{fontSize:"10px", color: muted}}>Total {s(total)}</div>}</div>
                     </div>
                   );
                 })}
               </div>
             )}
 
-            {payOrderId && (
+            {payOrderIds.length > 0 && (
               <div style={{marginTop:"16px", padding:"16px", background: cardBg, borderRadius:"12px", border:"1px solid " + border}}>
                 <div style={{fontSize:"13px", color: muted, marginBottom:"8px"}}>Monto a cobrar</div>
                 <input type="number" value={payAmount} min="0" step="0.01"
                   onChange={e => setPayAmount(e.target.value)}
                   style={inputStyle} />
+                {payOrderIds.length > 1 && (
+                  <div style={{fontSize:"12px", color: muted, marginBottom:"12px", marginTop:"6px"}}>
+                    Se imputará de la NV más vieja a la más nueva hasta agotar el monto. La última puede quedar parcialmente paga.
+                    <div style={{fontSize:"11px", marginTop:"4px"}}>Se registrará un cobro separado por cada NV alcanzada, en una sola acción.</div>
+                  </div>
+                )}
 
                 <div style={{fontSize:"13px", color: muted, marginBottom:"8px"}}>Método de pago</div>
                 <select value={payMethod} onChange={e => setPayMethod(e.target.value)} style={inputStyle}>
@@ -691,7 +790,7 @@ export default function Contact360Page() {
                 {payError && <div style={{fontSize:"13px", color:"#e74c3c", marginBottom:"8px", padding:"8px 12px", background:"#e74c3c11", borderRadius:"8px", border:"1px solid #e74c3c33"}}>{payError}</div>}
               <div style={{display:"flex", gap:"8px", justifyContent:"flex-end", marginTop:"16px"}}>
                   <button onClick={() => setShowPayModal(false)} style={btnSecondary}>Cancelar</button>
-                  <button onClick={handlePay} disabled={!payAmount || !payMethod || savingPay} style={btnPrimary}>
+                  <button onClick={handlePay} disabled={payOrderIds.length === 0 || !payMethod || !payAmount || savingPay} style={btnPrimary}>
                     {savingPay ? "..." : "Cobrar"}
                   </button>
                 </div>

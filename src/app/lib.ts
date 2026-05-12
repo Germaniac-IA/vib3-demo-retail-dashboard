@@ -26,7 +26,11 @@ export async function fetchJson<T>(path: string, includeDiscontinued = false): P
   }
 
   if (!response.ok) {
-    throw new Error(`Error cargando ${path}`);
+    const body = await response.json().catch(() => ({}));
+    const err = new Error(`Error cargando ${path}`);
+    (err as any).body = body;
+    (err as any).status = response.status;
+    throw err;
   }
 
   return response.json();
@@ -52,8 +56,11 @@ export async function postJson<T>(path: string, body: unknown): Promise<T> {
   }
 
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || `Error enviando ${path}`);
+    const body = await response.json().catch(() => ({}));
+    const err = new Error(`Error enviando ${path}`);
+    (err as any).body = body;
+    (err as any).status = response.status;
+    throw err;
   }
 
   return response.json();
@@ -79,8 +86,11 @@ export async function putJson<T>(path: string, body: unknown): Promise<T> {
   }
 
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || `Error actualizando ${path}`);
+    const body = await response.json().catch(() => ({}));
+    const err = new Error(`Error actualizando ${path}`);
+    (err as any).body = body;
+    (err as any).status = response.status;
+    throw err;
   }
 
   return response.json();
@@ -103,7 +113,11 @@ export async function deleteJson<T>(path: string): Promise<T> {
   }
 
   if (!response.ok) {
-    throw new Error(`Error eliminando ${path}`);
+    const body = await response.json().catch(() => ({}));
+    const err = new Error(`Error eliminando ${path}`);
+    (err as any).body = body;
+    (err as any).status = response.status;
+    throw err;
   }
 
   return response.json();

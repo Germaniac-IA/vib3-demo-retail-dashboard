@@ -8,7 +8,7 @@ export default function HomeRedirectPage() {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    router.replace(token ? "/negocio" : "/login");
+    router.replace(token ? "/inicio" : "/login");
   }, [router]);
 
   return null;

@@ -105,11 +105,15 @@ export default function VentasPage() {
     } catch(e: any) { alert("Error: " + e.message); }
   }
 
-  async function markDelivered(orderId: number) {
-    const delivered = orderStatuses.find(s => s.name?.toLowerCase() === "entregado");
-    if (!delivered) { alert('No encontré un estado llamado Entregado'); return; }
+  async function markFinalized(orderId: number) {
+    if (!confirm("Marcar esta NV como finalizada? Esto da por terminados productos, servicios y OTs asociadas.")) return;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
     try {
-      await updateOrderStatus(orderId, delivered.id);
+      const r = await fetch(`${API}/orders/${orderId}/finalize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      });
+      if (!r.ok) throw new Error('status ' + r.status);
       load();
     } catch (e) { alert('Error: ' + e); }
   }
@@ -162,7 +166,16 @@ function handleExportExcel() {
     try {
       await deleteJson("/orders/" + id);
       setRefreshKey(k => k + 1);
-    } catch (e) { console.error(e); alert("No se pudo eliminar"); }
+    } catch (e: any) {
+      console.error(e);
+      const body = e?.body || (typeof e === "object" ? e : null);
+      if (body?.payments?.length > 0) {
+        const paymentList = body.payments.map((p: any) => "  $" + Number(p.amount).toLocaleString("es-AR", {minimumFractionDigits:2}) + " - " + (p.method || "-") + " (" + new Date(p.paid_at).toLocaleDateString("es-AR") + ")").join("\n");
+        alert("No se puede eliminar: la venta tiene cobros asociados.\n\nEliminá los cobros primero:\n" + paymentList);
+      } else {
+        alert("No se pudo eliminar");
+      }
+    }
   }
 
   const filtered = orders.filter(o => {
@@ -374,7 +387,7 @@ function handleExportExcel() {
                       </button>
                     )}
                     {o.order_status_name?.toLowerCase() !== "entregado" && (
-                      <button onClick={() => markDelivered(o.id)} title="Marcar entregado"
+                      <button onClick={() => markFinalized(o.id)} title="Marcar finalizado"
                         style={{ padding: "5px 8px", borderRadius: "6px", border: "1px solid #27ae60", background: "#f0fff4", cursor: "pointer", fontSize: "12px" }}>
                         ✅
                       </button>
@@ -428,7 +441,7 @@ function handleExportExcel() {
                   <td style={{ padding: "8px", textAlign: "center" }}>
                     <button onClick={() => setDetailId(o.id)} title="Ver detalle" style={{ background: "none", border: "none", cursor: "pointer", fontSize: "12px", padding: "2px 4px" }}>👁️</button>
                     <button onClick={() => openStatusModal(o.id)} title="Editar estado" style={{ background: "none", border: "none", cursor: "pointer", fontSize: "12px", padding: "2px 4px" }}>🚚</button>
-                    {o.order_status_name?.toLowerCase() !== "entregado" && <button onClick={() => markDelivered(o.id)} title="Marcar entregado" style={{ background: "none", border: "none", cursor: "pointer", fontSize: "12px", padding: "2px 4px", color: "#27ae60" }}>✅</button>}
+                    {o.order_status_name?.toLowerCase() !== "entregado" && <button onClick={() => markFinalized(o.id)} title="Marcar finalizado" style={{ background: "none", border: "none", cursor: "pointer", fontSize: "12px", padding: "2px 4px", color: "#27ae60" }}>✅</button>}
                     {o.order_status_name?.toLowerCase() === "pedido" && <button onClick={() => startProduction(o.id)} title="Iniciar producción" style={{ background: "none", border: "none", cursor: "pointer", fontSize: "12px", padding: "2px 4px", color: "#6c63ff" }}>🏗️</button>}
                     <button onClick={() => handleDelete(o.id, o.order_number)} title="Eliminar" style={{ background: "none", border: "none", cursor: "pointer", fontSize: "12px", padding: "2px 4px", color: "#e74c3c" }}>🗑️</button>
                   </td>

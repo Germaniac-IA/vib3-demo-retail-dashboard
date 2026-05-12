@@ -128,8 +128,19 @@ export default function ComprasPage() {
 
   async function handleDelete(id: number) {
     if (!confirm("Eliminar NP?")) return;
-    await deleteJson("/purchase-orders/" + id);
-    setRefreshKey(k => k + 1);
+    try {
+      await deleteJson("/purchase-orders/" + id);
+      setRefreshKey(k => k + 1);
+    } catch (e: any) {
+      console.error(e);
+      const body = e?.body || (typeof e === "object" ? e : null);
+      if (body?.payments?.length > 0) {
+        const paymentList = body.payments.map((p: any) => "  $" + Number(p.amount).toLocaleString("es-AR", {minimumFractionDigits:2}) + " - " + (p.method || "-") + " (" + new Date(p.paid_at).toLocaleDateString("es-AR") + ")").join("\n");
+        alert("No se puede eliminar: la compra tiene pagos asociados.\n\nEliminá los pagos primero:\n" + paymentList);
+      } else {
+        alert("No se pudo eliminar");
+      }
+    }
   }
 
   return (

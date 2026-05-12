@@ -166,7 +166,7 @@ export default function OrderDetailReadOnly({ orderId, onClose }: Props) {
           <div style={{ border: "1px solid #eee", borderRadius: "8px", overflow: "hidden" }}>
             {order.items.map((item: any, idx: number) => (
               <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", borderBottom: idx < order.items.length - 1 ? "1px solid #f0" : "none", fontSize: "13px" }}>
-                <span>{item.quantity} × {item.product_name}{item.attribute_value_name ? <span style={{background:'#e8f0fe',color:'#1a56db',padding:'1px 6px',borderRadius:'4px',fontSize:'11px',fontWeight:700,marginLeft:'6px'}}>{item.attribute_value_name}</span> : null}{item.attribute_allocations ? <span style={{color:'#888',fontSize:'11px',marginLeft:'4px'}}>({item.attribute_allocations.map(a=>a.quantity+'x'+a.attribute_value_name).join(', ')})</span> : null}</span>
+                <span>{item.quantity} × {item.product_name}{item.is_service ? <span style={{background:'#e8f5e9',color:'#2e7d32',padding:'1px 6px',borderRadius:'4px',fontSize:'11px',fontWeight:700,marginLeft:'6px'}}>Servicio</span> : null}{item.attribute_value_name ? <span style={{background:'#e8f0fe',color:'#1a56db',padding:'1px 6px',borderRadius:'4px',fontSize:'11px',fontWeight:700,marginLeft:'6px'}}>{item.attribute_value_name}</span> : null}{item.fulfillment_status ? <span style={{background:item.fulfillment_status === 'delivered' ? '#e8f5e9' : '#fff4e5', color:item.fulfillment_status === 'delivered' ? '#2e7d32' : '#b26a00', padding:'1px 6px',borderRadius:'4px',fontSize:'11px',fontWeight:700,marginLeft:'6px'}}>{item.fulfillment_status === 'delivered' ? 'Entregado' : 'Pendiente'}</span> : null}{item.attribute_allocations ? <span style={{color:'#888',fontSize:'11px',marginLeft:'4px'}}>({item.attribute_allocations.map(a=>a.quantity+'x'+a.attribute_value_name).join(', ')})</span> : null}</span>
                 <span style={{ fontWeight: 700 }}>${Number(item.subtotal).toLocaleString("es-AR")}</span>
               </div>
             ))}
@@ -199,7 +199,7 @@ export default function OrderDetailReadOnly({ orderId, onClose }: Props) {
       <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
         {remaining > 0 && (
           <button
-            onClick={() => { window.location.href = `/baver/cobros?order_id=${order.id}`; }}
+            onClick={() => { window.location.href = `/cobros?order_id=${order.id}`; }}
             style={{ flex: 2, padding: "10px", borderRadius: "8px", border: "none", background: "#27ae60", color: "#fff", cursor: "pointer", fontSize: "14px", fontWeight: 700 }}
           >
             💰 Cobrar NV

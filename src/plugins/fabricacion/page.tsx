@@ -27,7 +27,9 @@ interface Movement {
   created_at: string;
 }
 
-const API = '/baver/api';
+import { fetchJson } from '../../app/lib';
+
+const API = process.env.NEXT_PUBLIC_API_URL || '/baver/api';
 
 function authHeaders(): Record<string,string> {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';

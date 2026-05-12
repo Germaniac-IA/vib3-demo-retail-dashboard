@@ -14,7 +14,8 @@ type User = { id: number; name: string; username: string };
 
 type AttributeAllocationDraft = { attribute_value_id: number; quantity: number; value?: string };
 type ProductAttributeOption = { attribute_value_id: number; value: string; stock_quantity?: number };
-type ItemDraft = { product_id: number; product_name: string; quantity: number; unit_price: number; requires_stock?: boolean; has_attributes?: boolean; attribute_allocations?: AttributeAllocationDraft[] };
+type Service = { id: number; name: string; description?: string; price: number; is_recurring?: boolean; is_active?: boolean; creates_work_order?: boolean; sort_order?: number };
+type ItemDraft = { product_id?: number | null; product_name: string; quantity: number; unit_price: number; requires_stock?: boolean; has_attributes?: boolean; is_service?: boolean; service_id?: number; attribute_allocations?: AttributeAllocationDraft[] };
 
 type Props = {
   saleChannels: SaleChannel[];
@@ -27,6 +28,8 @@ type Props = {
 export default function NewSaleModal({ saleChannels, orderStatuses, paymentStatuses, onClose, onCreated }: Props) {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [itemTab, setItemTab] = useState<'productos' | 'servicios'>('productos');
   const [users, setUsers] = useState<User[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [saving, setSaving] = useState(false);
@@ -65,9 +68,11 @@ export default function NewSaleModal({ saleChannels, orderStatuses, paymentStatu
       fetchJson<User[]>("/users"),
       fetchJson<PaymentMethod[]>("/payment-methods"),
       fetchJson<any>("/cash-sessions/current").catch(() => null),
-    ]).then(([c, p, u, pm, sess]) => {
+      fetchJson<Service[]>("/services?recurring=false").catch(() => []),
+    ]).then(([c, p, u, pm, sess, svc]) => {
       setContacts(c);
       setProducts(p);
+      setServices(svc);
       setUsers(u.filter((user: any) => user.is_active !== false));
       setPaymentMethods(pm);
       setHasOpenCashSession(Boolean(sess));
@@ -141,9 +146,14 @@ export default function NewSaleModal({ saleChannels, orderStatuses, paymentStatu
   }
 
   function addProduct(p: Product) {
-    if (items.find(i => i.product_id === p.id)) return;
+    if (items.find(i => !i.is_service && i.product_id === p.id)) return;
     const newIndex = items.length;
     setItems([...items, { product_id: p.id, product_name: p.name, quantity: 1, unit_price: Number(p.price) || 0, requires_stock: p.requires_stock, has_attributes: p.has_attributes, attribute_allocations: [] }]);
+    setProductSearch("");
+    setShowProductDropdown(false);
+  }
+  function addService(svc: Service) {
+    setItems([...items, { product_id: null, product_name: svc.name, quantity: 1, unit_price: Number(svc.price) || 0, is_service: true, service_id: svc.id }]);
     setProductSearch("");
     setShowProductDropdown(false);
   }
@@ -168,6 +178,16 @@ export default function NewSaleModal({ saleChannels, orderStatuses, paymentStatu
       const effectiveCashAmount = Number(montoPagado) || 0;
 
       const expandedItems = items.flatMap(i => {
+        if (i.is_service) {
+          return [{
+            is_service: true,
+            service_id: i.service_id,
+            product_id: null,
+            quantity: Number(i.quantity),
+            unit_price: i.unit_price,
+            product_name: i.product_name,
+          }];
+        }
         if (i.requires_stock && i.has_attributes) {
           const allocations = (i.attribute_allocations || []).filter(a => Number(a.quantity) > 0);
           const allocatedQty = allocations.reduce((s, a) => s + Number(a.quantity || 0), 0);
@@ -321,8 +341,21 @@ export default function NewSaleModal({ saleChannels, orderStatuses, paymentStatu
           </select>
         </div>
 
-        {/* Productos */}
+        {/* Items: Productos / Servicios tabs */}
         <div style={{ gridColumn: "1/-1" }}>
+          <div style={{ display: "flex", gap: "4px", marginBottom: "8px" }}>
+            <button onClick={() => setItemTab('productos')}
+              style={{ flex: 1, padding: "8px", borderRadius: "8px", border: itemTab === 'productos' ? "2px solid #6c63ff" : "1px solid #ddd", background: itemTab === 'productos' ? "#f3f1ff" : "#fff", cursor: "pointer", fontSize: "13px", fontWeight: 700, color: itemTab === 'productos' ? "#6c63ff" : "#666" }}>
+              📦 Productos
+            </button>
+            <button onClick={() => setItemTab('servicios')}
+              style={{ flex: 1, padding: "8px", borderRadius: "8px", border: itemTab === 'servicios' ? "2px solid #6c63ff" : "1px solid #ddd", background: itemTab === 'servicios' ? "#f3f1ff" : "#fff", cursor: "pointer", fontSize: "13px", fontWeight: 700, color: itemTab === 'servicios' ? "#6c63ff" : "#666" }}>
+              🔧 Servicios
+            </button>
+          </div>
+
+          {itemTab === 'productos' && (
+          <>
           <label style={{ fontSize: "12px", fontWeight: 700, color: "#666", display: "block", marginBottom: "4px" }}>Productos</label>
           <div style={{ position: "relative" }}>
             <div style={{ display: "flex", gap: "6px" }}>
@@ -353,6 +386,43 @@ export default function NewSaleModal({ saleChannels, orderStatuses, paymentStatu
               </div>
             )}
           </div>
+          </>
+          )}
+
+          {itemTab === 'servicios' && (
+          <>
+          <label style={{ fontSize: "12px", fontWeight: 700, color: "#666", display: "block", marginBottom: "4px" }}>Servicios</label>
+          <div style={{ position: "relative" }}>
+            <div style={{ display: "flex", gap: "6px" }}>
+              <input
+                value={productSearch}
+                onChange={e => { setProductSearch(e.target.value); setShowProductDropdown(true); }}
+                onFocus={() => setShowProductDropdown(true)}
+                placeholder="Buscar servicio..."
+                style={{ flex: 1, padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }}
+              />
+              <button onClick={() => setShowProductDropdown(!showProductDropdown)}
+                title="Ver todos los servicios"
+                style={{ padding: "8px 10px", borderRadius: "8px", border: "1px solid #ddd", background: "#fff", cursor: "pointer", fontSize: "14px" }}>
+                🔍
+              </button>
+            </div>
+            {showProductDropdown && (
+              <div style={{ position: "absolute", top: "100%", left: 0, right: 0, border: "1px solid #ddd", borderRadius: "8px", marginTop: "4px", maxHeight: "200px", overflowY: "auto", background: "#fff", zIndex: 10, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}>
+                {(services || []).filter(s => (s.name || '').toLowerCase().includes(productSearch.toLowerCase())).slice(0, 15).map(s => (
+                  <div key={s.id} onClick={() => addService(s)}
+                    style={{ padding: "10px 14px", cursor: "pointer", fontSize: "13px", borderBottom: "1px solid #f0", display: "flex", justifyContent: "space-between" }}
+                    onMouseEnter={e => (e.currentTarget.style.background = "#f5f5f5")}
+                    onMouseLeave={e => (e.currentTarget.style.background = "none")}>
+                    <span>{s.name}</span>
+                    <span style={{ color: "#888", fontWeight: 700 }}>${Number(s.price).toLocaleString("es-AR")}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          </>
+          )}
 
           {items.length > 0 && (
             <div style={{ marginTop: "8px", border: "1px solid #eee", borderRadius: "8px", overflow: "hidden" }}>
@@ -369,11 +439,14 @@ export default function NewSaleModal({ saleChannels, orderStatuses, paymentStatu
                   <span style={{ fontWeight: 700, minWidth: "70px", textAlign: "right" }}>
                     ${(item.quantity * item.unit_price).toLocaleString("es-AR")}
                   </span>
-                  {item.requires_stock && item.has_attributes && (
+                  {item.is_service && (
+                    <span style={{ background:"#e8f5e9", color:"#2e7d32", borderRadius:"8px", padding:"4px 8px", fontSize:"11px", fontWeight:700 }}>🔧 Servicio</span>
+                  )}
+                  {!item.is_service && item.requires_stock && item.has_attributes && (
                     <button onClick={() => openAllocationEditor(idx)} style={{ border: "1px solid #6c63ff", background: "#f3f1ff", color: "#6c63ff", borderRadius: "8px", padding: "6px 8px", cursor: "pointer", fontSize: "11px", fontWeight: 700 }}>Configurar atributos</button>
                   )}
                   <button onClick={() => removeItem(idx)} style={{ background: "none", border: "none", color: "#e74c3c", cursor: "pointer", fontSize: "14px", padding: "2px 4px" }}>✕</button>
-                {item.requires_stock && item.has_attributes && (
+                {!item.is_service && item.requires_stock && item.has_attributes && (
                     <div style={{ width: "100%", fontSize: "11px", color: "#666", marginTop: "4px" }}>
                       {(item.attribute_allocations || []).length > 0
                         ? `Reparto: ${(item.attribute_allocations || []).map(a => `${a.value || a.attribute_value_id}: ${a.quantity}`).join(", ")}`
