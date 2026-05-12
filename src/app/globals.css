@@ -286,14 +286,28 @@ html {
   }
 
   .budget-two-cols,
-  .budget-search-row,
-  .budget-actions {
+  .budget-search-row {
     flex-direction: column !important;
   }
 
-  .budget-search-row > button,
-  .budget-actions > button {
+  .budget-search-row > button {
     width: 100% !important;
+  }
+
+  .budget-actions {
+    flex-direction: row !important;
+    gap: 6px !important;
+    position: sticky !important;
+    bottom: -14px !important;
+    background: var(--bg-secondary) !important;
+    padding-top: 8px !important;
+    padding-bottom: 2px !important;
+  }
+
+  .budget-actions > button {
+    min-height: 38px !important;
+    padding: 8px !important;
+    font-size: 12px !important;
   }
 
   .budget-item-row {
