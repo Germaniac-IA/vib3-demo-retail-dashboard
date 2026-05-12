@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { fetchJson, postJson, putJson, deleteJson } from "../../lib";
 import { Card, CardHeader, IconButton, PageTitle, Loading, Input, Button } from "../../components/shared/UI";
 
-type PaymentMethod = { id: number; name: string; is_personal: boolean; is_cash: boolean; cbu_cvu: string; alias: string; banco: string; is_active: boolean; sort_order: number };
+type PaymentMethod = { id: number; name: string; is_personal: boolean; is_cash: boolean; cbu_cvu: string; alias: string; banco: string; is_active: boolean; sort_order: number; generates_payment_link?: boolean; integration_provider?: string; integration_label?: string };
 type Category = { id: number; name: string; is_active: boolean; auto_generate_sku: boolean; sku_prefix: string; sku_counter: number };
 type Brand = { id: number; name: string; is_imported: boolean; premium_level: number; is_active: boolean };
 type InputItem = { id: number; name: string; unit: string; default_cost: number; is_active: boolean };
@@ -82,7 +82,7 @@ function PaymentMethodsABM() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<PaymentMethod | null>(null);
-  const [form, setForm] = useState({ name: "", is_personal: false, is_cash: true, cbu_cvu: "", alias: "", banco: "" });
+  const [form, setForm] = useState({ name: "", is_personal: false, is_cash: true, cbu_cvu: "", alias: "", banco: "", generates_payment_link: false, integration_provider: "mercadopago" });
   const [saving, setSaving] = useState(false);
 
   function load() {
@@ -91,10 +91,10 @@ function PaymentMethodsABM() {
   }
   useEffect(() => { load(); }, []);
 
-  function openNew() { setEditing(null); setForm({ name: "", is_personal: false, is_cash: true, cbu_cvu: "", alias: "", banco: "" }); setShowForm(true); }
+  function openNew() { setEditing(null); setForm({ name: "", is_personal: false, is_cash: true, cbu_cvu: "", alias: "", banco: "", generates_payment_link: false, integration_provider: "mercadopago" }); setShowForm(true); }
   function openEdit(m: PaymentMethod) {
     setEditing(m);
-    setForm({ name: m.name || "", is_personal: m.is_personal || false, is_cash: m.is_cash !== false, cbu_cvu: m.cbu_cvu || "", alias: m.alias || "", banco: m.banco || "" });
+    setForm({ name: m.name || "", is_personal: m.is_personal || false, is_cash: m.is_cash !== false, cbu_cvu: m.cbu_cvu || "", alias: m.alias || "", banco: m.banco || "", generates_payment_link: Boolean(m.generates_payment_link), integration_provider: m.integration_provider || "mercadopago" });
     setShowForm(true);
   }
   async function handleSave() {
@@ -112,6 +112,7 @@ function PaymentMethodsABM() {
       <div key={m.id} style={{ padding: "5px 0", borderBottom: "1px solid #f5", fontSize: "12px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
           <span style={{ flex: 1, fontWeight: 600 }}>{m.is_personal ? "👤 " : ""}{m.name}</span>
+          {m.generates_payment_link && <span style={{ fontSize: "10px", color: "#009ee3", fontWeight: 700 }}>🔗 MP</span>}
           {m.is_cash ? <span style={{ fontSize: "10px", color: "#27ae60" }}>💵</span> : <span style={{ fontSize: "10px", color: "#888" }}>🏦</span>}
           <IconButton variant="ghost" title="Editar" onClick={() => openEdit(m)}>✏️</IconButton>
           <IconButton variant="danger" title="Eliminar" onClick={() => remove(m.id)}>🗑️</IconButton>
@@ -141,6 +142,16 @@ function PaymentMethodsABM() {
                   style={{ width: "18px", height: "18px", accentColor: "#1a1a2e", cursor: "pointer" }} />
                 <span style={{ fontWeight: 600 }}>Es método personal (no mostrar en caja)</span>
               </label>
+              <label style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "13px", cursor: "pointer", padding: "10px", background: form.generates_payment_link ? "#e8f7ff" : "#fafafa", border: "1px solid " + (form.generates_payment_link ? "#009ee3" : "#eee"), borderRadius: "10px" }}>
+                <input type="checkbox" checked={form.generates_payment_link} onChange={e => setForm((f) => ({ ...f, generates_payment_link: e.target.checked, integration_provider: e.target.checked ? "mercadopago" : "mercadopago" }))}
+                  style={{ width: "18px", height: "18px", accentColor: "#009ee3", cursor: "pointer" }} />
+                <span style={{ fontWeight: 700 }}>Genera link de pago Mercado Pago</span>
+              </label>
+              {form.generates_payment_link && (
+                <div style={{ fontSize: "11px", color: "#666", background: "#f7fbff", border: "1px solid #dceeff", borderRadius: "8px", padding: "8px 10px" }}>
+                  Solo puede haber un método activo por cliente. Si tildás este, se destilda automáticamente cualquier otro método Mercado Pago.
+                </div>
+              )}
               {!form.is_cash && (<>
                 <Input value={form.alias} onChange={(v) => setForm((f) => ({ ...f, alias: v }))} placeholder="Alias (opcional)" />
                 <Input value={form.cbu_cvu} onChange={(v) => setForm((f) => ({ ...f, cbu_cvu: v }))} placeholder="CBU / CVU" />

@@ -85,7 +85,8 @@ export function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: 
     const template = [
       { SKU: "EJEMPLO-001", NOMBRE: "Producto ejemplo", CATEGORIA: "Ropa", MARCA: "Nike",
         PRECIO: 15000, COSTO: 8000, STOCK: 10, MINIMO: 2, UNIDAD: "unidad",
-        DESCRIPCION: "Descripcion larga", DESCRIPCION_COMERCIAL: "Descripcion para venta", CODIGO: "EXT-001" }
+        DESCRIPCION: "Descripcion larga", DESCRIPCION_COMERCIAL: "Descripcion para venta",
+        CODIGO: "EXT-001", ACTIVO: "Si" }
     ];
     const ws = XLSX.utils.json_to_sheet(template);
     const wb = XLSX.utils.book_new();
@@ -115,7 +116,7 @@ export function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: 
 
         <div style={{ background: "#f8f8ff", border: "1px solid #e8e8ff", borderRadius: 8, padding: "10px 14px", marginBottom: 18, fontSize: 12, color: "#666", lineHeight: 1.6 }}>
           <strong style={{ color: "#6c63ff", display: "block", marginBottom: 4 }}>Columnas del archivo:</strong>
-          SKU, NOMBRE, CATEGORIA, MARCA, PRECIO, COSTO, STOCK, MINIMO, UNIDAD, DESCRIPCION, DESCRIPCION_COMERCIAL, CODIGO
+          SKU, NOMBRE, CATEGORIA, MARCA, PRECIO, COSTO, STOCK, MINIMO, UNIDAD, DESCRIPCION, DESCRIPCION_COMERCIAL, CODIGO, ACTIVO
         </div>
 
         <div onClick={() => fileRef.current?.click()} style={{
@@ -206,15 +207,19 @@ export function ExportReportButton({ products }: { products: any[] }) {
   async function doExport() {
     const data = await fetchJson<any[]>("/products/report");
     const rows = data.map((p: any) => ({
-      SKU: p.sku, CODIGO: p.sku_externo, NOMBRE: p.name,
-      CATEGORIA: p.category_name, MARCA: p.brand_name,
-      PRECIO: p.price, COSTO: p.cost_price, MARGEN: p.price - p.cost_price,
-      STOCK: p.stock_quantity, MINIMO: p.min_stock,
+      SKU: p.sku,
+      NOMBRE: p.name,
+      CATEGORIA: p.category_name || "",
+      MARCA: p.brand_name || "",
+      PRECIO: p.price,
+      COSTO: p.cost_price,
+      STOCK: p.stock_quantity,
+      MINIMO: p.min_stock,
+      UNIDAD: p.unit || "unidad",
+      DESCRIPCION: p.description || "",
+      DESCRIPCION_COMERCIAL: p.commercial_description || "",
+      CODIGO: p.sku_externo || "",
       ACTIVO: p.is_active ? "Si" : "No",
-      PREMIUM: p.is_premium ? "Si" : "No", NIVEL: p.premium_level,
-      TALLE: p.talle || "",
-      COLOR: p.color || "",
-      ATRIBUTO: p.attr_combo || "",
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();

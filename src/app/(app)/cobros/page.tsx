@@ -6,7 +6,7 @@ import { exportCashWorkbook } from "../../utils/exportCashWorkbook";
 import { Card, PageTitle, Loading, Empty } from "../../components/shared/UI";
 
 type CashMovement = { id: number; type: string; reason: string; amount: number; account_name: string; client_name: string; order_number: string; notes: string; created_at: string; };
-type PaymentMethod = { id: number; name: string; requires_arqueo: boolean };
+type PaymentMethod = { id: number; name: string; requires_arqueo: boolean; generates_payment_link?: boolean; integration_provider?: string; integration_label?: string };
 type Contact = { id: number; name: string; phone: string; };
 type UnpaidNV = { id: number; order_number: string; contact_name: string; phone: string; total: number; payment_paid: number; payment_pending: number; };
 type Stats = { total_in: number; total_out: number; move_count: number; nv_count: number; net: number; };
@@ -28,6 +28,7 @@ export default function CobrosPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [movForm, setMovForm] = useState({ financial_account_id: "", reason: "", order_id: "", client_id: "", amount: "", notes: "" });
   const [saving, setSaving] = useState(false);
+  const [paymentLink, setPaymentLink] = useState<string>("");
   const [hasOpenCashSession, setHasOpenCashSession] = useState(false);
   const [deepLinkHandled, setDeepLinkHandled] = useState(false);
 
@@ -106,6 +107,7 @@ export default function CobrosPage() {
   }
 
   function setMov(field: string, value: string) {
+    setPaymentLink("");
     setMovForm(prev => ({ ...prev, [field]: value }));
     if (field === "client_id") {
       // Reload unpaid NVs filtered by client
@@ -152,6 +154,50 @@ export default function CobrosPage() {
     !contactSearch || c.name?.toLowerCase().includes(contactSearch.toLowerCase()) ||
     c.phone?.includes(contactSearch)
   );
+
+  const selectedPaymentMethod = paymentMethods.find(pm => String(pm.id) === String(movForm.financial_account_id));
+  const usesPaymentLink = Boolean(selectedPaymentMethod?.generates_payment_link && selectedPaymentMethod?.integration_provider === "mercadopago");
+
+  async function handleGeneratePaymentLink() {
+    const amount = Number(movForm.amount);
+    if (!movForm.reason) { alert("Seleccioná un motivo"); return; }
+    if (!movForm.financial_account_id || !amount) { alert("Completá cuenta y monto"); return; }
+    if (amount <= 0) { alert("El monto debe ser mayor a cero"); return; }
+    if (movForm.reason === "advance" && !movForm.client_id) { alert("Seleccioná un cliente para el anticipo"); return; }
+    if (movForm.reason === "nv_payment" && !movForm.order_id) { alert("Seleccioná una NV / orden"); return; }
+    setSaving(true);
+    try {
+      const result = await postJson<{ init_point?: string; sandbox_init_point?: string; error?: string }>("/integrations/mercadopago/preference", {
+        order_id: movForm.order_id ? Number(movForm.order_id) : undefined,
+        contact_id: movForm.client_id ? Number(movForm.client_id) : undefined,
+        financial_account_id: Number(movForm.financial_account_id),
+        reason: movForm.reason,
+        amount,
+        title: movForm.reason === "nv_payment"
+          ? `Cobro ${selectedNv?.order_number || "NV"}`
+          : movForm.reason === "advance"
+            ? `Anticipo ${selectedContact?.name || "cliente"}`
+            : "Cobro online",
+        description: movForm.notes || undefined,
+        notes: movForm.notes || undefined,
+      });
+      const link = result.init_point || result.sandbox_init_point || "";
+      if (!link) throw new Error(result.error || "Mercado Pago no devolvió link");
+      setPaymentLink(link);
+      // Copy with fallback
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = link;
+        ta.style.position = "fixed";
+        ta.style.left = "-9999px";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      } catch (e2) { console.warn("Clipboard fallback failed", e2); }
+    } catch (e: any) { alert(e?.body?.error || e?.message || "Error generando link de pago"); }
+    finally { setSaving(false); }
+  }
 
   async function handleRegisterMovement() {
     const amount = Number(movForm.amount);
@@ -342,8 +388,13 @@ export default function CobrosPage() {
                 <label style={{ fontSize: "12px", fontWeight: 700, color: "#666" }}>Cuenta *</label>
                 <select value={movForm.financial_account_id} onChange={e => setMov("financial_account_id", e.target.value)} style={{ width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px" }}>
                   <option value="">Seleccionar cuenta</option>
-                  {paymentMethods.map(pm => <option key={pm.id} value={pm.id}>{pm.name}{pm.requires_arqueo ? " (arqueo)" : ""}</option>)}
+                  {paymentMethods.map(pm => <option key={pm.id} value={pm.id}>{pm.name}{pm.generates_payment_link ? " 🔗 MP" : ""}{pm.requires_arqueo ? " (arqueo)" : ""}</option>)}
                 </select>
+                {usesPaymentLink && (
+                  <div style={{ marginTop: "6px", padding: "8px 10px", borderRadius: "8px", background: "#e8f7ff", color: "#0077aa", fontSize: "12px", fontWeight: 700 }}>
+                    Esta cuenta genera link de pago Mercado Pago. El cobro se registra automáticamente cuando MP aprueba el pago.
+                  </div>
+                )}
               </div>
               <div>
                 <label style={{ fontSize: "12px", fontWeight: 700, color: "#666" }}>Motivo</label>
@@ -461,10 +512,20 @@ export default function CobrosPage() {
                 <label style={{ fontSize: "12px", fontWeight: 700, color: "#666" }}>Notas</label>
                 <textarea value={movForm.notes} onChange={e => setMov("notes", e.target.value)} placeholder="Observaciones..." style={{ width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px", minHeight: "60px", resize: "vertical" }} />
               </div>
+              {paymentLink && (
+                <div style={{ padding: "10px 12px", borderRadius: "10px", background: "#f0fff4", border: "1px solid #27ae60", fontSize: "12px" }}>
+                  <div style={{ fontWeight: 800, color: "#27ae60", marginBottom: "6px" }}>✅ Link generado y copiado</div>
+                  <a href={paymentLink} target="_blank" rel="noreferrer" style={{ color: "#0077cc", wordBreak: "break-all" }}>{paymentLink}</a>
+                </div>
+              )}
             </div>
             <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
               <button onClick={() => setShowMovForm(false)} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "1px solid #ddd", background: "#fff", cursor: "pointer" }}>Cancelar</button>
-              <button onClick={handleRegisterMovement} disabled={saving} style={{ flex: 2, padding: "10px", borderRadius: "8px", border: "none", background: "#27ae60", color: "#fff", cursor: saving ? "not-allowed" : "pointer", fontWeight: 700, opacity: saving ? 0.7 : 1, fontSize: "14px" }}>{saving ? "Registrando..." : "💰 Registrar"}</button>
+              {usesPaymentLink ? (
+                <button onClick={handleGeneratePaymentLink} disabled={saving} style={{ flex: 2, padding: "10px", borderRadius: "8px", border: "none", background: "#009ee3", color: "#fff", cursor: saving ? "not-allowed" : "pointer", fontWeight: 700, opacity: saving ? 0.7 : 1, fontSize: "14px" }}>{saving ? "Generando..." : "🔗 Generar link MP"}</button>
+              ) : (
+                <button onClick={handleRegisterMovement} disabled={saving} style={{ flex: 2, padding: "10px", borderRadius: "8px", border: "none", background: "#27ae60", color: "#fff", cursor: saving ? "not-allowed" : "pointer", fontWeight: 700, opacity: saving ? 0.7 : 1, fontSize: "14px" }}>{saving ? "Registrando..." : "💰 Registrar"}</button>
+              )}
             </div>
           </div>
         </div>
