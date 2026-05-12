@@ -19,6 +19,7 @@ type BudgetItem = {
 type Budget = {
   id: number;
   client_id: number;
+  contact_id?: number;
   number: string;
   subtotal: number;
   discount: number;
@@ -36,6 +37,23 @@ type Budget = {
 type Contact = {
   id: number;
   name: string;
+  phone?: string;
+  email?: string;
+};
+
+type Product = {
+  id: number;
+  name: string;
+  price: number;
+  discontinued?: number;
+};
+
+type Service = {
+  id: number;
+  name: string;
+  price: number;
+  description?: string;
+  is_active?: boolean;
 };
 
 const cardStyle: React.CSSProperties = {
@@ -64,6 +82,11 @@ export default function PresupuestosPage() {
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [loading, setLoading] = useState(true);
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [itemTab, setItemTab] = useState<"productos" | "servicios">("productos");
+  const [productSearch, setProductSearch] = useState("");
+  const [showProductDropdown, setShowProductDropdown] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
   const [detailId, setDetailId] = useState<number | null>(null);
@@ -77,7 +100,7 @@ export default function PresupuestosPage() {
   const [formValidUntil, setFormValidUntil] = useState("");
   const [formNotes, setFormNotes] = useState("");
   const [formDiscount, setFormDiscount] = useState("0");
-  const [formItems, setFormItems] = useState<BudgetItem[]>([{ description: "", quantity: 1, unit_price: 0 }]);
+  const [formItems, setFormItems] = useState<BudgetItem[]>([]);
 
   const load = useCallback(async () => {
     try {
@@ -93,7 +116,15 @@ export default function PresupuestosPage() {
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
-    fetchJson<Contact[]>("/contacts?limit=500").then(setContacts).catch(() => {});
+    Promise.all([
+      fetchJson<Contact[]>("/contacts?limit=500"),
+      fetchJson<Product[]>("/products"),
+      fetchJson<Service[]>("/services?recurring=false").catch(() => []),
+    ]).then(([c, p, svc]) => {
+      setContacts(c);
+      setProducts(p);
+      setServices(svc);
+    }).catch(() => {});
   }, []);
 
   function resetForm() {
@@ -101,13 +132,16 @@ export default function PresupuestosPage() {
     setFormValidUntil("");
     setFormNotes("");
     setFormDiscount("0");
-    setFormItems([{ description: "", quantity: 1, unit_price: 0 }]);
+    setFormItems([]);
+    setProductSearch("");
+    setShowProductDropdown(false);
+    setItemTab("productos");
     setEditing(null);
   }
 
   async function handleCreate() {
     if (!formClient) return alert("Seleccioná un cliente");
-    if (!formItems.length || !formItems[0].description) return alert("Agregá al menos un item con descripción");
+    if (!formItems.length) return alert("Agregá al menos un producto o servicio");
 
     const body = {
       client_id: Number(formClient),
@@ -117,7 +151,7 @@ export default function PresupuestosPage() {
       items: formItems.map(i => ({
         product_id: i.product_id || null,
         service_id: i.service_id || null,
-        description: i.description,
+        description: i.description || i.product_name || i.service_name || "",
         quantity: Number(i.quantity),
         unit_price: Number(i.unit_price),
       })),
@@ -156,28 +190,45 @@ export default function PresupuestosPage() {
     fetchJson<any>(`/budgets/${id}`).then(setDetailData).catch(() => {});
   }
 
-  function openEdit(b: Budget) {
-    setEditing(b);
-    setFormClient(String(b.client_id));
-    setFormValidUntil(b.valid_until ? b.valid_until.slice(0, 10) : "");
-    setFormNotes(b.notes || "");
-    setFormDiscount(String(b.discount));
-    setFormItems((b.items || []).map(i => ({
+  async function openEdit(b: Budget) {
+    const full = b.items ? b : await fetchJson<Budget>(`/budgets/${b.id}`);
+    setEditing(full);
+    setFormClient(String(full.contact_id || full.client_id || ""));
+    setFormValidUntil(full.valid_until ? full.valid_until.slice(0, 10) : "");
+    setFormNotes(full.notes || "");
+    setFormDiscount(String(full.discount || 0));
+    setFormItems((full.items || []).map(i => ({
       product_id: i.product_id,
       service_id: i.service_id,
-      description: i.description,
+      description: i.description || i.product_name || i.service_name || "",
+      product_name: i.product_name,
+      service_name: i.service_name,
       quantity: i.quantity,
       unit_price: i.unit_price,
     })));
+    setProductSearch("");
+    setShowProductDropdown(false);
     setShowModal(true);
   }
 
-  function addItem() {
+  function addProduct(p: Product) {
+    if (formItems.find(i => i.product_id === p.id)) return;
+    setFormItems([...formItems, { product_id: p.id, description: p.name, product_name: p.name, quantity: 1, unit_price: Number(p.price) || 0 }]);
+    setProductSearch("");
+    setShowProductDropdown(false);
+  }
+
+  function addService(svc: Service) {
+    setFormItems([...formItems, { service_id: svc.id, description: svc.name, service_name: svc.name, quantity: 1, unit_price: Number(svc.price) || 0 }]);
+    setProductSearch("");
+    setShowProductDropdown(false);
+  }
+
+  function addManualItem() {
     setFormItems([...formItems, { description: "", quantity: 1, unit_price: 0 }]);
   }
 
   function removeItem(idx: number) {
-    if (formItems.length <= 1) return;
     setFormItems(formItems.filter((_, i) => i !== idx));
   }
 
@@ -190,6 +241,13 @@ export default function PresupuestosPage() {
   function calcSubtotal(items: BudgetItem[]) {
     return items.reduce((s, i) => s + Number(i.quantity) * Number(i.unit_price), 0);
   }
+
+  const filteredProducts = products.filter(pr =>
+    (!productSearch || pr.name?.toLowerCase().includes(productSearch.toLowerCase())) && pr.discontinued !== 1
+  );
+  const filteredServices = services.filter(svc =>
+    !productSearch || svc.name?.toLowerCase().includes(productSearch.toLowerCase())
+  );
 
   const itemsSubtotal = calcSubtotal(formItems);
   const itemsTotal = Math.max(0, itemsSubtotal - Number(formDiscount || 0));
@@ -329,25 +387,91 @@ export default function PresupuestosPage() {
             </div>
 
             {/* Items */}
-            <div style={{ marginBottom: "12px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                <label style={{ fontSize: "12px", fontWeight: 700, color: "var(--text-secondary)" }}>Items</label>
-                <button onClick={addItem} style={{ background: "var(--accent)", border: "none", borderRadius: "6px", padding: "4px 10px", color: "#fff", cursor: "pointer", fontSize: "11px", fontWeight: 600 }}>+ Agregar</button>
+            <div style={{ gridColumn: "1/-1", marginBottom: "12px" }}>
+              <div style={{ display: "flex", gap: "4px", marginBottom: "8px" }}>
+                <button onClick={() => { setItemTab("productos"); setProductSearch(""); setShowProductDropdown(false); }}
+                  style={{ flex: 1, padding: "8px", borderRadius: "8px", border: itemTab === "productos" ? "2px solid var(--accent)" : "1px solid var(--border-color)", background: itemTab === "productos" ? "rgba(108,99,255,0.12)" : "var(--bg-input)", cursor: "pointer", fontSize: "13px", fontWeight: 700, color: itemTab === "productos" ? "var(--accent)" : "var(--text-secondary)" }}>
+                  📦 Productos
+                </button>
+                <button onClick={() => { setItemTab("servicios"); setProductSearch(""); setShowProductDropdown(false); }}
+                  style={{ flex: 1, padding: "8px", borderRadius: "8px", border: itemTab === "servicios" ? "2px solid var(--accent)" : "1px solid var(--border-color)", background: itemTab === "servicios" ? "rgba(108,99,255,0.12)" : "var(--bg-input)", cursor: "pointer", fontSize: "13px", fontWeight: 700, color: itemTab === "servicios" ? "var(--accent)" : "var(--text-secondary)" }}>
+                  🔧 Servicios
+                </button>
               </div>
-              {formItems.map((item, idx) => (
-                <div key={idx} style={{ display: "flex", gap: "6px", marginBottom: "6px", alignItems: "center" }}>
-                  <input value={item.description} onChange={e => updateItem(idx, "description", e.target.value)} placeholder="Descripción"
-                    style={{ flex: 2, padding: "6px 10px", borderRadius: "6px", border: "1px solid var(--border-color)", background: "var(--bg-input)", color: "var(--text-primary)", fontSize: "12px" }} />
-                  <input type="number" value={item.quantity} onChange={e => updateItem(idx, "quantity", e.target.value)} placeholder="Cant"
-                    style={{ width: "60px", padding: "6px 8px", borderRadius: "6px", border: "1px solid var(--border-color)", background: "var(--bg-input)", color: "var(--text-primary)", fontSize: "12px", textAlign: "right" }} />
-                  <input type="number" value={item.unit_price} onChange={e => updateItem(idx, "unit_price", e.target.value)} placeholder="Precio"
-                    style={{ width: "80px", padding: "6px 8px", borderRadius: "6px", border: "1px solid var(--border-color)", background: "var(--bg-input)", color: "var(--text-primary)", fontSize: "12px", textAlign: "right" }} />
-                  <span style={{ width: "70px", textAlign: "right", fontSize: "12px", color: "var(--text-primary)", fontWeight: 600 }}>
-                    {formatMoney(Number(item.quantity) * Number(item.unit_price))}
-                  </span>
-                  <button onClick={() => removeItem(idx)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "14px", color: "#ef4444", padding: "4px" }}>✕</button>
+
+              <div style={{ position: "relative", marginBottom: "10px" }}>
+                <div style={{ display: "flex", gap: "6px" }}>
+                  <input
+                    value={productSearch}
+                    onChange={e => { setProductSearch(e.target.value); setShowProductDropdown(true); }}
+                    onFocus={() => setShowProductDropdown(true)}
+                    placeholder={itemTab === "productos" ? "Buscar producto..." : "Buscar servicio..."}
+                    style={{ flex: 1, padding: "8px 12px", borderRadius: "8px", border: "1px solid var(--border-color)", background: "var(--bg-input)", color: "var(--text-primary)", fontSize: "13px" }}
+                  />
+                  <button onClick={() => setShowProductDropdown(!showProductDropdown)}
+                    title={itemTab === "productos" ? "Ver productos" : "Ver servicios"}
+                    style={{ padding: "8px 10px", borderRadius: "8px", border: "1px solid var(--border-color)", background: "var(--bg-input)", color: "var(--text-primary)", cursor: "pointer", fontSize: "14px" }}>
+                    🔍
+                  </button>
+                  <button onClick={addManualItem}
+                    title="Agregar item manual"
+                    style={{ padding: "8px 10px", borderRadius: "8px", border: "1px solid var(--border-color)", background: "var(--bg-input)", color: "var(--text-primary)", cursor: "pointer", fontSize: "13px", fontWeight: 700 }}>
+                    + Manual
+                  </button>
                 </div>
-              ))}
+                {showProductDropdown && (
+                  <div style={{ position: "absolute", top: "100%", left: 0, right: 0, border: "1px solid var(--border-color)", borderRadius: "8px", marginTop: "4px", maxHeight: "220px", overflowY: "auto", background: "var(--bg-secondary)", zIndex: 20, boxShadow: "0 8px 24px rgba(0,0,0,0.18)" }}>
+                    {itemTab === "productos" ? (
+                      filteredProducts.length === 0 ? <div style={{ padding: "12px", fontSize: "12px", color: "var(--text-secondary)", textAlign: "center" }}>Sin productos</div> :
+                      filteredProducts.slice(0, 20).map(p => (
+                        <div key={p.id} onClick={() => addProduct(p)}
+                          style={{ padding: "10px 14px", cursor: "pointer", fontSize: "13px", borderBottom: "1px solid var(--border-color)", display: "flex", justifyContent: "space-between", gap: "12px", color: "var(--text-primary)" }}
+                          onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-input)")}
+                          onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                          <span>{p.name}</span>
+                          <span style={{ color: "var(--text-secondary)", fontWeight: 700 }}>{formatMoney(Number(p.price))}</span>
+                        </div>
+                      ))
+                    ) : (
+                      filteredServices.length === 0 ? <div style={{ padding: "12px", fontSize: "12px", color: "var(--text-secondary)", textAlign: "center" }}>Sin servicios</div> :
+                      filteredServices.slice(0, 20).map(svc => (
+                        <div key={svc.id} onClick={() => addService(svc)}
+                          style={{ padding: "10px 14px", cursor: "pointer", fontSize: "13px", borderBottom: "1px solid var(--border-color)", display: "flex", justifyContent: "space-between", gap: "12px", color: "var(--text-primary)" }}
+                          onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-input)")}
+                          onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                          <span>🔧 {svc.name}</span>
+                          <span style={{ color: "var(--text-secondary)", fontWeight: 700 }}>{formatMoney(Number(svc.price))}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {formItems.length > 0 && (
+                <div style={{ border: "1px solid var(--border-color)", borderRadius: "8px", overflow: "hidden" }}>
+                  {formItems.map((item, idx) => (
+                    <div key={idx} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 10px", borderBottom: idx === formItems.length - 1 ? "none" : "1px solid var(--border-color)", fontSize: "13px", flexWrap: "wrap" }}>
+                      <input value={item.description} onChange={e => updateItem(idx, "description", e.target.value)} placeholder="Descripción"
+                        style={{ flex: "1 1 220px", padding: "6px 10px", borderRadius: "6px", border: "1px solid var(--border-color)", background: "var(--bg-input)", color: "var(--text-primary)", fontSize: "12px" }} />
+                      <input type="number" min={0} value={item.quantity} onChange={e => updateItem(idx, "quantity", e.target.value)}
+                        style={{ width: "64px", padding: "6px 8px", borderRadius: "6px", border: "1px solid var(--border-color)", background: "var(--bg-input)", color: "var(--text-primary)", fontSize: "12px", textAlign: "right" }} />
+                      <span style={{ color: "var(--text-secondary)", fontSize: "12px" }}>×</span>
+                      <input type="number" min={0} value={item.unit_price} onChange={e => updateItem(idx, "unit_price", e.target.value)}
+                        style={{ width: "92px", padding: "6px 8px", borderRadius: "6px", border: "1px solid var(--border-color)", background: "var(--bg-input)", color: "var(--text-primary)", fontSize: "12px", textAlign: "right" }} />
+                      <span style={{ minWidth: "84px", textAlign: "right", fontSize: "12px", color: "var(--text-primary)", fontWeight: 700 }}>
+                        {formatMoney(Number(item.quantity) * Number(item.unit_price))}
+                      </span>
+                      {item.service_id && <span style={{ background: "rgba(34,197,94,0.14)", color: "#22c55e", borderRadius: "8px", padding: "4px 8px", fontSize: "11px", fontWeight: 700 }}>🔧 Servicio</span>}
+                      {item.product_id && <span style={{ background: "rgba(59,130,246,0.14)", color: "#3b82f6", borderRadius: "8px", padding: "4px 8px", fontSize: "11px", fontWeight: 700 }}>📦 Producto</span>}
+                      <button onClick={() => removeItem(idx)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "14px", color: "#ef4444", padding: "4px" }}>✕</button>
+                    </div>
+                  ))}
+                  <div style={{ padding: "8px 12px", fontWeight: 800, fontSize: "13px", textAlign: "right", background: "var(--bg-input)", color: "var(--text-primary)" }}>
+                    Subtotal: {formatMoney(itemsSubtotal)}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Totals */}
