@@ -379,8 +379,8 @@ export default function PresupuestosPage() {
 
       {/* Create/Edit Modal */}
       {showModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }} onClick={e => e.target === e.currentTarget && setShowModal(false)}>
-          <div style={{ background: "var(--bg-secondary)", borderRadius: "16px", padding: "24px", width: "100%", maxWidth: "640px", maxHeight: "90vh", overflowY: "auto" }}>
+        <div className="budget-modal-overlay" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }} onClick={e => e.target === e.currentTarget && setShowModal(false)}>
+          <div className="budget-modal-card" style={{ background: "var(--bg-secondary)", borderRadius: "16px", padding: "24px", width: "100%", maxWidth: "640px", maxHeight: "90vh", overflowY: "auto" }}>
             <h3 style={{ margin: "0 0 16px", fontSize: "18px", fontWeight: 800, color: "var(--text-primary)" }}>
               {editing ? "Editar Presupuesto" : "Nuevo Presupuesto"}
             </h3>
@@ -396,7 +396,7 @@ export default function PresupuestosPage() {
             </div>
 
             {/* Validity + Discount */}
-            <div style={{ display: "flex", gap: "12px", marginBottom: "12px" }}>
+            <div className="budget-two-cols" style={{ display: "flex", gap: "12px", marginBottom: "12px" }}>
               <div style={{ flex: 1 }}>
                 <label style={{ fontSize: "12px", fontWeight: 700, color: "var(--text-secondary)", margin: "0 0 4px", display: "block" }}>Válido hasta</label>
                 <input type="date" value={formValidUntil} onChange={e => setFormValidUntil(e.target.value)}
@@ -430,7 +430,7 @@ export default function PresupuestosPage() {
               </div>
 
               <div style={{ position: "relative", marginBottom: "10px" }}>
-                <div style={{ display: "flex", gap: "6px" }}>
+                <div className="budget-search-row" style={{ display: "flex", gap: "6px" }}>
                   <input
                     value={productSearch}
                     onChange={e => { setProductSearch(e.target.value); setShowProductDropdown(true); }}
@@ -481,13 +481,13 @@ export default function PresupuestosPage() {
               {formItems.length > 0 && (
                 <div style={{ border: "1px solid var(--border-color)", borderRadius: "8px", overflow: "hidden" }}>
                   {formItems.map((item, idx) => (
-                    <div key={idx} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 10px", borderBottom: idx === formItems.length - 1 ? "none" : "1px solid var(--border-color)", fontSize: "13px", flexWrap: "wrap" }}>
-                      <input value={item.description} onChange={e => updateItem(idx, "description", e.target.value)} placeholder="Descripción"
+                    <div className="budget-item-row" key={idx} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 10px", borderBottom: idx === formItems.length - 1 ? "none" : "1px solid var(--border-color)", fontSize: "13px", flexWrap: "wrap" }}>
+                      <input className="budget-item-desc" value={item.description} onChange={e => updateItem(idx, "description", e.target.value)} placeholder="Descripción"
                         style={{ flex: "1 1 220px", padding: "6px 10px", borderRadius: "6px", border: "1px solid var(--border-color)", background: "var(--bg-input)", color: "var(--text-primary)", fontSize: "12px" }} />
-                      <input type="number" min={0} value={item.quantity} onChange={e => updateItem(idx, "quantity", e.target.value)}
+                      <input className="budget-item-qty" type="number" min={0} value={item.quantity} onChange={e => updateItem(idx, "quantity", e.target.value)}
                         style={{ width: "64px", padding: "6px 8px", borderRadius: "6px", border: "1px solid var(--border-color)", background: "var(--bg-input)", color: "var(--text-primary)", fontSize: "12px", textAlign: "right" }} />
                       <span style={{ color: "var(--text-secondary)", fontSize: "12px" }}>×</span>
-                      <input type="number" min={0} value={item.unit_price} onChange={e => updateItem(idx, "unit_price", e.target.value)}
+                      <input className="budget-item-price" type="number" min={0} value={item.unit_price} onChange={e => updateItem(idx, "unit_price", e.target.value)}
                         style={{ width: "92px", padding: "6px 8px", borderRadius: "6px", border: "1px solid var(--border-color)", background: "var(--bg-input)", color: "var(--text-primary)", fontSize: "12px", textAlign: "right" }} />
                       <span style={{ minWidth: "84px", textAlign: "right", fontSize: "12px", color: "var(--text-primary)", fontWeight: 700 }}>
                         {formatMoney(Number(item.quantity) * Number(item.unit_price))}
@@ -512,7 +512,7 @@ export default function PresupuestosPage() {
             </div>
 
             {/* Actions */}
-            <div style={{ display: "flex", gap: "8px" }}>
+            <div className="budget-actions" style={{ display: "flex", gap: "8px" }}>
               <button onClick={() => { setShowModal(false); resetForm(); }}
                 style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "1px solid var(--border-color)", background: "transparent", cursor: "pointer", color: "var(--text-primary)", fontSize: "13px" }}>Cancelar</button>
               <button onClick={handleCreate}

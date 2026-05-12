@@ -266,3 +266,55 @@ html {
     font-size: 12px !important;
   }
 }
+
+/* Presupuestos: modal responsive para celulares verticales */
+@media (max-width: 640px) {
+  .budget-modal-overlay {
+    align-items: flex-start !important;
+    justify-content: center !important;
+    padding: 8px !important;
+    overflow-y: auto !important;
+  }
+
+  .budget-modal-card {
+    width: calc(100vw - 16px) !important;
+    max-width: calc(100vw - 16px) !important;
+    max-height: calc(100dvh - 16px) !important;
+    border-radius: 12px !important;
+    padding: 14px !important;
+    margin: 0 !important;
+  }
+
+  .budget-two-cols,
+  .budget-search-row,
+  .budget-actions {
+    flex-direction: column !important;
+  }
+
+  .budget-search-row > button,
+  .budget-actions > button {
+    width: 100% !important;
+  }
+
+  .budget-item-row {
+    display: grid !important;
+    grid-template-columns: 1fr 72px 100px 28px !important;
+    align-items: center !important;
+    gap: 6px !important;
+    padding: 10px !important;
+  }
+
+  .budget-item-desc {
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
+    flex: none !important;
+  }
+
+  .budget-item-qty {
+    width: 72px !important;
+  }
+
+  .budget-item-price {
+    width: 100px !important;
+  }
+}
