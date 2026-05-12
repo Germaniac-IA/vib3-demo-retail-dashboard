@@ -15,10 +15,10 @@ type MiniSummary = {
 };
 
 const cardStyle: React.CSSProperties = {
-  background: "#1a1a2e",
+  background: "var(--bg-secondary)",
   borderRadius: "16px",
   padding: "20px",
-  border: "1px solid rgba(255,255,255,0.06)",
+  border: "1px solid var(--border-color)",
 };
 
 export default function HomePage() {
@@ -53,10 +53,10 @@ export default function HomePage() {
     <div>
       {/* Header */}
       <div style={{ marginBottom: "32px" }}>
-        <h1 style={{ fontSize: "24px", fontWeight: 700, margin: 0, color: "#fff" }}>
+        <h1 style={{ fontSize: "24px", fontWeight: 700, margin: 0, color: "var(--text-primary)" }}>
           Panel de control
         </h1>
-        <p style={{ fontSize: "13px", color: "#888", margin: "6px 0 0", textTransform: "capitalize" }}>
+        <p style={{ fontSize: "13px", color: "var(--text-secondary)", margin: "6px 0 0", textTransform: "capitalize" }}>
           {dayName}, {dateStr}
         </p>
       </div>
@@ -67,15 +67,15 @@ export default function HomePage() {
         <div style={{
           ...cardStyle,
           display: "flex", flexDirection: "column", justifyContent: "center",
-          background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)",
+          background: "var(--bg-card)",
         }}>
-          <div style={{ fontSize: "12px", color: "#6b7280", marginBottom: "8px", fontWeight: 600, letterSpacing: "0.5px" }}>
+          <div style={{ fontSize: "12px", color: "var(--text-secondary)", marginBottom: "8px", fontWeight: 600, letterSpacing: "0.5px" }}>
             SALDO DE CAJA
           </div>
-          <div style={{ fontSize: "36px", fontWeight: 800, color: "#fff", marginBottom: "4px" }}>
+          <div style={{ fontSize: "36px", fontWeight: 800, color: "var(--text-primary)", marginBottom: "4px" }}>
             {formatMoney(data?.saldo_caja ?? 0)}
           </div>
-          <div style={{ fontSize: "12px", color: "#6b7280" }}>
+          <div style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
             Disponible en efectivo y bancos
           </div>
         </div>
@@ -125,10 +125,10 @@ export default function HomePage() {
       <div style={{ ...cardStyle, marginBottom: "24px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "18px" }}>
           <div>
-            <h2 style={{ fontSize: "12px", fontWeight: 700, margin: 0, color: "#6b7280", letterSpacing: "1px" }}>
+            <h2 style={{ fontSize: "12px", fontWeight: 700, margin: 0, color: "var(--text-secondary)", letterSpacing: "1px" }}>
               ACCESOS DEL SISTEMA
             </h2>
-            <p style={{ fontSize: "12px", color: "#4b5563", margin: "5px 0 0" }}>
+            <p style={{ fontSize: "12px", color: "var(--text-secondary)", margin: "5px 0 0" }}>
               Atajos ordenados para operar sin abrir el menú lateral.
             </p>
           </div>
@@ -180,8 +180,8 @@ function KpiCard({ label, value, icon, trend, alert: isAlert }: {
   trend?: "up" | "down" | "neutral";
   alert?: boolean;
 }) {
-  const borderColor = isAlert ? "1px solid rgba(239, 68, 68, 0.3)" : "1px solid rgba(255,255,255,0.06)";
-  const accentColor = isAlert ? "#ef4444" : trend === "up" ? "#22c55e" : "#6b7280";
+  const borderColor = isAlert ? "1px solid rgba(239, 68, 68, 0.3)" : "1px solid var(--border-color)";
+  const accentColor = isAlert ? "#ef4444" : trend === "up" ? "#22c55e" : "var(--text-secondary)";
 
   return (
     <div style={{
@@ -190,12 +190,12 @@ function KpiCard({ label, value, icon, trend, alert: isAlert }: {
       border: borderColor,
     }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
-        <span style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, letterSpacing: "0.3px" }}>
+        <span style={{ fontSize: "11px", color: "var(--text-secondary)", fontWeight: 600, letterSpacing: "0.3px" }}>
           {label.toUpperCase()}
         </span>
         <span style={{ fontSize: "16px" }}>{icon}</span>
       </div>
-      <div style={{ fontSize: "22px", fontWeight: 700, color: "#fff", marginBottom: "2px" }}>
+      <div style={{ fontSize: "22px", fontWeight: 700, color: "var(--text-primary)", marginBottom: "2px" }}>
         {value}
       </div>
       {trend && (
@@ -219,12 +219,12 @@ function ActionSection({ title, items, onGo }: {
 }) {
   return (
     <div style={{
-      background: "rgba(255,255,255,0.025)",
-      border: "1px solid rgba(255,255,255,0.06)",
+      background: "var(--bg-input)",
+      border: "1px solid var(--border-color)",
       borderRadius: "14px",
       padding: "14px",
     }}>
-      <div style={{ fontSize: "12px", fontWeight: 800, color: "#94a3b8", marginBottom: "10px", letterSpacing: "0.4px" }}>
+      <div style={{ fontSize: "12px", fontWeight: 800, color: "var(--text-secondary)", marginBottom: "10px", letterSpacing: "0.4px" }}>
         {title.toUpperCase()}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(118px, 1fr))", gap: "8px" }}>
@@ -248,9 +248,9 @@ function ActionButton({ icon, label, onClick }: {
         minHeight: "46px",
         display: "flex", alignItems: "center", gap: "8px",
         padding: "10px 11px", borderRadius: "10px",
-        background: hover ? "rgba(99, 102, 241, 0.15)" : "rgba(255,255,255,0.035)",
-        color: hover ? "#a5b4fc" : "#e2e8f0",
-        border: hover ? "1px solid rgba(99, 102, 241, 0.35)" : "1px solid rgba(255,255,255,0.06)",
+        background: hover ? "var(--accent)" : "transparent",
+        color: hover ? "#fff" : "var(--text-primary)",
+        border: hover ? "1px solid var(--accent)" : "1px solid var(--border-color)",
         cursor: "pointer", fontSize: "12px", fontWeight: 650,
         transition: "all 0.15s ease",
         textAlign: "left",

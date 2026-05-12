@@ -19,6 +19,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     if (saved) setTheme(saved);
   }, []);
 
+  // Sync data-theme attribute on <html> whenever theme changes
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
+
   function toggleTheme() {
     const next = theme === "dark" ? "light" : "dark";
     setTheme(next);
