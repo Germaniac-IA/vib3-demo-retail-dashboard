@@ -175,6 +175,25 @@ export default function PresupuestosPage() {
     } catch (e: any) { alert("Error: " + e.message); }
   }
 
+  async function downloadPdf(id: number, number?: string) {
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : "";
+      const res = await fetch(`/api/budgets/${id}/pdf`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      if (!res.ok) throw new Error("No se pudo generar el PDF");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Presupuesto-${number || id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e: any) {
+      alert("Error: " + (e?.message || "No se pudo descargar el PDF"));
+    }
+  }
+
   async function handleConvert(id: number) {
     if (!confirm("¿Convertir este presupuesto en Nota de Venta?")) return;
     try {
@@ -514,8 +533,8 @@ export default function PresupuestosPage() {
                       style={{ background: "var(--accent)", border: "none", borderRadius: "6px", padding: "6px 12px", cursor: "pointer", color: "#fff", fontSize: "12px", fontWeight: 600 }}>Convertir a NV</button>
                   </>
                 )}
-                <a href={`/api/budgets/${detailData.id}/pdf`} target="_blank"
-                  style={{ background: "none", border: "1px solid var(--border-color)", borderRadius: "6px", padding: "4px 8px", cursor: "pointer", fontSize: "12px", color: "var(--text-primary)", textDecoration: "none" }}>📄 PDF</a>
+                <button onClick={() => downloadPdf(detailData.id, detailData.number)}
+                  style={{ background: "none", border: "1px solid var(--border-color)", borderRadius: "6px", padding: "4px 8px", cursor: "pointer", fontSize: "12px", color: "var(--text-primary)" }}>📄 PDF</button>
               </div>
             </div>
 
