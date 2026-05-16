@@ -26,6 +26,12 @@ const NAV_STRUCTURE: NavSection[] = [
     ],
   },
   {
+    title: "UPGRADES",
+    items: [
+      { label: "Facturación Electr.", icon: "🧾", href: "/facturacion" },
+    ],
+  },
+  {
     title: "GESTIÓN",
     items: [
       { label: "Productos", icon: "📦", href: "/productos" },
