@@ -26,9 +26,15 @@ type AfipInvoice = {
   client_name: string | null; client_doc_nro: string | null;
   order_number: string | null;
   created_at: string; obs: string | null;
+  voucher_kind?: string;
+  related_invoice_id?: number | null;
 };
 
-const INVOICE_LABELS: Record<number, string> = { 1: "Factura A", 6: "Factura B", 11: "Factura C" };
+const INVOICE_LABELS: Record<number, string> = {
+  1: "Factura A", 3: "NC A",
+  6: "Factura B", 8: "NC B",
+  11: "Factura C", 13: "NC C",
+};
 const IVA_PCTS = [
   { value: "0", label: "0% (Exento)" },
   { value: "10.5", label: "10.5%" },
@@ -242,6 +248,22 @@ export default function FacturacionPage() {
     const data = await api(`/api/afip/facturas?${params}`);
     if (data) { setInvoices(data.facturas || []); setInvoiceTotal(data.total); setHistPage(page); }
     setLoading(false);
+  }
+
+  async function handleEmitirNC(inv: AfipInvoice) {
+    if (!window.confirm(`Se emitirá una Nota de Crédito para ${INVOICE_LABELS[inv.invoice_type] || 'comprobante'} ${String(inv.punto_venta).padStart(4, "0")}-${String(inv.invoice_number).padStart(8, "0")}. ¿Confirmás?`)) return;
+    setError(""); setSuccess("");
+    const result = await api("/api/afip/notas-credito", {
+      method: "POST",
+      body: JSON.stringify({ invoice_id: inv.id, motivo: "Anulación desde historial" }),
+    });
+    if (result?.success) {
+      setSuccess(`Nota de Crédito emitida - CAE: ${result.cae}`);
+      loadHistorial(histPage);
+      if (tab === "libroiva") loadLibro();
+    } else {
+      setError(result?.error || "Error emitiendo Nota de Crédito");
+    }
   }
 
   // ─── Load libro IVA ────────────────────────────────────────
@@ -561,6 +583,7 @@ export default function FacturacionPage() {
                       <th style={{ padding: "10px 8px", textAlign: "center" }}>CAE</th>
                       <th style={{ padding: "10px 8px", textAlign: "center" }}>Estado</th>
                       <th style={{ padding: "10px 8px", textAlign: "right" }}>Fecha</th>
+                      <th style={{ padding: "10px 8px", textAlign: "center" }}>Acción</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -577,6 +600,14 @@ export default function FacturacionPage() {
                         <td style={{ padding: "10px 8px", textAlign: "center", fontFamily: "monospace", fontSize: "12px" }}>{inv.cae || "—"}</td>
                         <td style={{ padding: "10px 8px", textAlign: "center" }}>{statusBadge(inv.result)}</td>
                         <td style={{ padding: "10px 8px", textAlign: "right", whiteSpace: "nowrap" }}>{formatDate(inv.created_at)}</td>
+                        <td style={{ padding: "10px 8px", textAlign: "center" }}>
+                          {inv.voucher_kind !== "credit_note" && inv.result === "A" ? (
+                            <button onClick={() => handleEmitirNC(inv)}
+                              style={{ padding: "4px 8px", border: "1px solid #e67e22", background: "#fff7e6", color: "#d35400", borderRadius: "6px", cursor: "pointer", fontSize: "11px" }}>
+                              Emitir NC
+                            </button>
+                          ) : "—"}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
