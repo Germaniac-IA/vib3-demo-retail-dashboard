@@ -66,6 +66,8 @@ export default function FacturacionPage() {
   const [orderOffset, setOrderOffset] = useState(0);
   const [selectedOrder, setSelectedOrder] = useState<NvOrder | null>(null);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [dragSelecting, setDragSelecting] = useState(false);
+  const [dragMode, setDragMode] = useState<"select" | "deselect" | null>(null);
   const [orderDetail, setOrderDetail] = useState<{ items: any[]; invoice_type_auto: number } | null>(null);
 
   // Emission
@@ -123,9 +125,52 @@ export default function FacturacionPage() {
   }
 
   // ─── Select NV ─────────────────────────────────────────────
+  function setOrderChecked(id: number, checked: boolean) {
+    setSelectedIds((prev) => {
+      const exists = prev.includes(id);
+      if (checked && !exists) return [...prev, id];
+      if (!checked && exists) return prev.filter((x) => x !== id);
+      return prev;
+    });
+  }
+
   function toggleSelected(id: number) {
     setSelectedIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
   }
+
+  function selectVisibleOrders() {
+    const ids = orders.filter((o) => !o.factura_cae).map((o) => o.id);
+    setSelectedIds((prev) => Array.from(new Set([...prev, ...ids])));
+  }
+
+  function clearVisibleOrders() {
+    const visible = new Set(orders.map((o) => o.id));
+    setSelectedIds((prev) => prev.filter((id) => !visible.has(id)));
+  }
+
+  function beginDragSelection(order: NvOrder, e: React.PointerEvent<HTMLDivElement>) {
+    const target = e.target as HTMLElement;
+    if (target.tagName === "INPUT" || target.tagName === "BUTTON" || order.factura_cae) return;
+    const nextMode = selectedIds.includes(order.id) ? "deselect" : "select";
+    setDragMode(nextMode);
+    setDragSelecting(true);
+    setOrderChecked(order.id, nextMode === "select");
+  }
+
+  function dragOverOrder(order: NvOrder) {
+    if (!dragSelecting || !dragMode || order.factura_cae) return;
+    setOrderChecked(order.id, dragMode === "select");
+  }
+
+  useEffect(() => {
+    const stop = () => { setDragSelecting(false); setDragMode(null); };
+    window.addEventListener("pointerup", stop);
+    window.addEventListener("pointercancel", stop);
+    return () => {
+      window.removeEventListener("pointerup", stop);
+      window.removeEventListener("pointercancel", stop);
+    };
+  }, []);
 
   async function selectOrder(order: NvOrder) {
     setSelectedOrder(order);
@@ -237,6 +282,26 @@ export default function FacturacionPage() {
 
   return (
     <div>
+      <style jsx>{`
+        .facturacion-main-grid { display: flex; gap: 20px; align-items: flex-start; }
+        .facturacion-list { flex: 1; min-width: 0; }
+        .facturacion-detail { width: 420px; flex-shrink: 0; position: sticky; top: 12px; }
+        .facturacion-filters { display: flex; gap: 8px; margin-bottom: 12px; }
+        .facturacion-batch-bar { display: flex; justify-content: space-between; align-items: center; background: #f0eeff; padding: 10px 12px; border-radius: 8px; margin-bottom: 12px; font-size: 13px; gap: 8px; }
+        .facturacion-row { user-select: none; touch-action: pan-y; }
+        .facturacion-row:hover { background: #faf9ff !important; }
+        .mobile-only { display: none; }
+        @media (max-width: 820px) {
+          .facturacion-main-grid { flex-direction: column; gap: 12px; }
+          .facturacion-list, .facturacion-detail { width: 100%; position: static; }
+          .facturacion-filters { flex-direction: column; }
+          .facturacion-batch-bar { position: sticky; bottom: 8px; z-index: 20; box-shadow: 0 8px 24px rgba(0,0,0,0.18); align-items: stretch; flex-direction: column; }
+          .facturacion-batch-actions { width: 100%; display: grid !important; grid-template-columns: 1fr 1fr; }
+          .facturacion-row { padding: 14px 12px !important; border-radius: 10px; margin: 6px 8px; border: 1px solid #eee; }
+          .facturacion-row input[type=checkbox] { width: 22px; height: 22px; }
+          .mobile-only { display: inline-flex; }
+        }
+      `}</style>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <PageTitle title="🧾 Facturación Electrónica" />
         <button onClick={() => setShowConfig(true)}
@@ -282,15 +347,15 @@ export default function FacturacionPage() {
 
       {/* ════════════════ TAB: FACTURAR NV ════════════════ */}
       {tab === "facturar" && (
-        <div style={{ display: "flex", gap: "20px", alignItems: "flex-start" }}>
+        <div className="facturacion-main-grid">
           {/* Left: NV list */}
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="facturacion-list">
             <Card>
               <CardHeader title="Notas de Venta" action={
                 <Button variant="secondary" onClick={() => searchNvs()}>🔄</Button>
               } />
               <div style={{ padding: "12px 16px" }}>
-                <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
+                <div className="facturacion-filters">
                   <div style={{ flex: 1 }}>
                     <input placeholder="Buscar por cliente, NV o producto..." value={nvSearch}
                       onChange={(e) => setNvSearch(e.target.value)}
@@ -306,10 +371,15 @@ export default function FacturacionPage() {
                     {loading ? "..." : "Buscar"}
                   </Button>
                 </div>
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "12px" }}>
+                  <Button variant="secondary" onClick={selectVisibleOrders}>Seleccionar visibles</Button>
+                  <Button variant="secondary" onClick={clearVisibleOrders}>Destildar visibles</Button>
+                  <span style={{ color: "#888", fontSize: "12px", alignSelf: "center" }}>Tip: en desktop podés clickear y arrastrar sobre las NVs.</span>
+                </div>
                 {selectedIds.length > 0 && (
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f0eeff", padding: "10px 12px", borderRadius: "8px", marginBottom: "12px", fontSize: "13px" }}>
+                  <div className="facturacion-batch-bar">
                     <span><strong>{selectedIds.length}</strong> NV seleccionadas</span>
-                    <div style={{ display: "flex", gap: "8px" }}>
+                    <div className="facturacion-batch-actions" style={{ display: "flex", gap: "8px" }}>
                       <Button variant="secondary" onClick={() => setSelectedIds([])}>Limpiar</Button>
                       <Button onClick={handleEmitirLote} disabled={emitting || !config?.has_afip_certs}>
                         {emitting ? "Procesando..." : "🧾 Facturar seleccionadas"}
@@ -323,7 +393,10 @@ export default function FacturacionPage() {
                 {loading ? <Loading /> : orders.length === 0 ? (
                   <Empty message="No se encontraron NVs" />
                 ) : orders.map((o) => (
-                  <div key={o.id} onClick={() => selectOrder(o)}
+                  <div key={o.id} className="facturacion-row"
+                    onPointerDown={(e) => beginDragSelection(o, e)}
+                    onPointerEnter={() => dragOverOrder(o)}
+                    onClick={() => selectOrder(o)}
                     style={{
                       display: "flex", justifyContent: "space-between", alignItems: "center",
                       padding: "10px 16px", cursor: "pointer", fontSize: "13px",
@@ -363,7 +436,7 @@ export default function FacturacionPage() {
           </div>
 
           {/* Right: NV detail + emit */}
-          <div style={{ width: "420px", flexShrink: 0 }}>
+          <div className="facturacion-detail">
             {selectedOrder ? (
               <>
                 <Card>
